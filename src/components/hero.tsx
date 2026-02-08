@@ -1,6 +1,77 @@
+"use client"
+
+import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
 
+// Animated counter that counts up from 0 to target
+function AnimatedStat({ target, label, suffix = "", prefix = "" }: { target: number; label: string; suffix?: string; prefix?: string }) {
+  const [count, setCount] = useState(0)
+  const ref = useRef<HTMLDivElement>(null)
+  const hasAnimated = useRef(false)
+
+  useEffect(() => {
+    if (hasAnimated.current || target === 0) {
+      setCount(target)
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasAnimated.current) {
+          hasAnimated.current = true
+          const duration = 1800
+          const steps = 40
+          const increment = target / steps
+          let current = 0
+          const timer = setInterval(() => {
+            current += increment
+            if (current >= target) {
+              setCount(target)
+              clearInterval(timer)
+            } else {
+              setCount(Math.floor(current))
+            }
+          }, duration / steps)
+        }
+      },
+      { threshold: 0.3 }
+    )
+
+    if (ref.current) observer.observe(ref.current)
+    return () => observer.disconnect()
+  }, [target])
+
+  return (
+    <div ref={ref} className="text-center group">
+      <p className="text-3xl sm:text-5xl font-bold text-white tabular-nums tracking-tight">
+        {prefix}{count.toLocaleString()}{suffix}
+      </p>
+      <p className="text-sm text-white/40 mt-1.5">{label}</p>
+    </div>
+  )
+}
+
 export function Hero() {
+  const [stats, setStats] = useState<{
+    totalAgents: number
+    activeCapabilities: number
+    totalNegotiations: number
+    completedTransactions: number
+    totalVolume: number
+  } | null>(null)
+
+  useEffect(() => {
+    fetch("https://www.bidz.nl/api/adp/v1/dashboard?summary=true")
+      .then(res => res.json())
+      .then(json => {
+        if (json.stats) setStats(json.stats)
+      })
+      .catch(() => {
+        // Fallback to static values if API fails
+        setStats({ totalAgents: 63, activeCapabilities: 8, totalNegotiations: 18, completedTransactions: 16, totalVolume: 0 })
+      })
+  }, [])
+
   return (
     <section className="relative overflow-hidden pt-16">
       {/* Background effects */}
@@ -27,7 +98,7 @@ export function Hero() {
           {/* Status badge */}
           <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-sm text-white/60 mb-8">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            Live proof of concept — Real transactions on bidz.nl
+            Live proof of concept — Real transactions happening now
           </div>
 
           {/* Headline */}
@@ -63,19 +134,31 @@ export function Hero() {
             </a>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mt-20 pt-10 border-t border-white/5">
-            {[
-              { value: "63", label: "Active Agents" },
-              { value: "8", label: "Service Categories" },
-              { value: "16", label: "Completed Transactions" },
-              { value: "0", label: "Human Interventions" },
-            ].map((stat) => (
-              <div key={stat.label} className="text-center">
-                <p className="text-3xl sm:text-4xl font-bold text-white">{stat.value}</p>
-                <p className="text-sm text-white/40 mt-1">{stat.label}</p>
-              </div>
-            ))}
+          {/* Live Stats */}
+          <div className="mt-20 pt-10 border-t border-white/5">
+            <div className="flex items-center justify-center gap-2 mb-6">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-xs text-white/30 uppercase tracking-widest font-medium">Live from the ADP network</span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+              {stats ? (
+                <>
+                  <AnimatedStat target={stats.totalAgents} label="Registered Agents" />
+                  <AnimatedStat target={stats.totalNegotiations} label="Negotiations" />
+                  <AnimatedStat target={stats.completedTransactions} label="Completed Deals" />
+                  <AnimatedStat target={0} label="Human Interventions" />
+                </>
+              ) : (
+                <>
+                  {["Registered Agents", "Negotiations", "Completed Deals", "Human Interventions"].map((label) => (
+                    <div key={label} className="text-center">
+                      <div className="h-10 w-16 mx-auto bg-white/5 rounded animate-pulse" />
+                      <p className="text-sm text-white/40 mt-1.5">{label}</p>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
