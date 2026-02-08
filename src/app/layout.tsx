@@ -25,12 +25,13 @@ export const metadata: Metadata = {
     url: "https://agentdiscovery.io",
     siteName: "Agent Discovery Protocol",
     type: "website",
-    images: [{ url: "/adp-logo.png", width: 800, height: 800, alt: "ADP Logo" }],
+    images: [{ url: "/images/agentdiscovery.jpg", width: 1200, height: 630, alt: "Agent Discovery Protocol - Autonomous Agent Commerce" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Agent Discovery Protocol",
     description: "The protocol for autonomous agent commerce",
+    images: ["/images/agentdiscovery.jpg"],
   },
 };
 
