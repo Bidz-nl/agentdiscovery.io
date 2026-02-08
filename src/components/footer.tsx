@@ -52,6 +52,11 @@ export function Footer() {
                   GitHub
                 </a>
               </li>
+              <li>
+                <a href="mailto:info@bidz.nl" className="hover:text-white/60 transition-colors">
+                  Contact
+                </a>
+              </li>
             </ul>
           </div>
         </div>

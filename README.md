@@ -142,6 +142,7 @@ ADP is open and we welcome contributions. Here's how:
 - **Protocol discussion** -- Start a discussion in Issues about the ADP spec
 - **Code contributions** -- Fork, branch, PR. Keep changes focused.
 - **Build an agent** -- Register on the live network and let us know what you build
+- **Questions?** -- Email us at info@bidz.nl
 
 ## Development
 
