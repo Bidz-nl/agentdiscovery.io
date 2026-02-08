@@ -1,8 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { Building2, MapPin, Wrench, Clock, DollarSign, ChevronRight, ChevronLeft, CheckCircle2, Zap, Globe, Phone, Mail, Plus, X, Tag, Package, Briefcase } from "lucide-react"
+import { Building2, MapPin, Clock, DollarSign, ChevronRight, ChevronLeft, CheckCircle2, Zap, Globe, Phone, Mail, Plus, X, Tag, Package, Briefcase, Shield, Users, TrendingUp, Bot } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
+import { Navbar } from "@/components/navbar"
+import { Footer } from "@/components/footer"
 
 // ============================================
 // Types
@@ -209,98 +212,193 @@ export default function RegisterProviderPage() {
   const progress = (currentStep / totalSteps) * 100
 
   return (
-    <div className="min-h-screen bg-[#050810]">
-      {/* Header */}
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/20 via-transparent to-transparent" />
-        <div className="max-w-3xl mx-auto px-4 pt-12 pb-6 relative">
-          <Link href="/" className="flex items-center gap-2 text-blue-400 text-sm font-medium mb-4 hover:text-blue-300 transition-colors">
-            <Zap className="h-4 w-4" />
-            <span>Agent Discovery Protocol</span>
-          </Link>
-          <h1 className="text-3xl md:text-5xl font-bold text-white mb-3">
-            Register your{" "}
-            <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-              service
-            </span>
-          </h1>
-          <p className="text-lg text-white/50 max-w-2xl">
-            List what you offer and get discovered automatically by AI agents and customers worldwide. From plumber to SaaS provider.
-          </p>
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#050810] text-white">
+      <Navbar />
 
-      <div className="max-w-2xl mx-auto px-4 pb-16">
-        {/* Progress bar */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between text-sm text-white/40 mb-2">
-            <span>Step {currentStep} of {totalSteps}</span>
-            <span>{Math.round(progress)}% complete</span>
-          </div>
-          <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-blue-600 to-cyan-500 rounded-full transition-all duration-500"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
+      {/* Hero */}
+      <section className="relative overflow-hidden pt-16">
+        <div className="absolute inset-0">
+          <div className="absolute top-1/4 left-1/3 w-[500px] h-[500px] bg-blue-500/8 rounded-full blur-[120px]" />
+          <div className="absolute bottom-1/4 right-1/4 w-[300px] h-[300px] bg-purple-500/8 rounded-full blur-[100px]" />
         </div>
 
-        {/* Steps */}
-        {currentStep === 1 && <StepBasicInfo form={form} updateForm={updateForm} />}
-        {currentStep === 2 && <StepWhatYouOffer form={form} updateForm={updateForm} addTag={addTag} removeTag={removeTag} />}
-        {currentStep === 3 && <StepServiceArea form={form} updateForm={updateForm} />}
-        {currentStep === 4 && <StepPricing form={form} updateForm={updateForm} toggleDay={toggleDay} />}
-
-        {/* Error message */}
-        {submitError && (
-          <div className="mt-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
-            {submitError}
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-12">
+          <div className="max-w-3xl">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-sm text-white/60 mb-6">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              Open protocol — Free to join
+            </div>
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-5 leading-[1.1]">
+              Get discovered by{" "}
+              <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
+                AI agents
+              </span>{" "}
+              worldwide
+            </h1>
+            <p className="text-lg sm:text-xl text-white/45 max-w-2xl leading-relaxed">
+              Register your service on the Agent Discovery Protocol and let autonomous AI agents find you, negotiate deals, and bring you customers — 24/7, without lifting a finger.
+            </p>
           </div>
-        )}
+        </div>
+      </section>
 
-        {/* Navigation */}
-        <div className="flex items-center justify-between mt-8">
-          {currentStep > 1 ? (
-            <button
-              onClick={() => setCurrentStep(s => s - 1)}
-              className="flex items-center gap-2 px-5 py-2.5 text-white/50 hover:text-white border border-white/10 rounded-lg hover:border-white/20 transition-colors"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Previous
-            </button>
-          ) : (
-            <div />
-          )}
+      {/* Main content: form + sidebar */}
+      <section className="relative max-w-6xl mx-auto px-4 sm:px-6 pb-20">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
 
-          {currentStep < totalSteps ? (
-            <button
-              onClick={() => setCurrentStep(s => s + 1)}
-              className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          ) : (
-            <button
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-              className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-semibold rounded-lg transition-all shadow-lg shadow-blue-500/25 disabled:opacity-50"
-            >
-              {isSubmitting ? (
-                <>
-                  <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Registering...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="h-4 w-4" />
-                  Register
-                </>
+          {/* Form column */}
+          <div className="lg:col-span-2">
+            <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6 sm:p-8">
+              {/* Progress bar */}
+              <div className="mb-8">
+                <div className="flex items-center justify-between text-sm text-white/40 mb-2">
+                  <span>Step {currentStep} of {totalSteps}</span>
+                  <span>{Math.round(progress)}% complete</span>
+                </div>
+                <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-blue-600 to-cyan-500 rounded-full transition-all duration-500"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Steps */}
+              {currentStep === 1 && <StepBasicInfo form={form} updateForm={updateForm} />}
+              {currentStep === 2 && <StepWhatYouOffer form={form} updateForm={updateForm} addTag={addTag} removeTag={removeTag} />}
+              {currentStep === 3 && <StepServiceArea form={form} updateForm={updateForm} />}
+              {currentStep === 4 && <StepPricing form={form} updateForm={updateForm} toggleDay={toggleDay} />}
+
+              {/* Error message */}
+              {submitError && (
+                <div className="mt-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+                  {submitError}
+                </div>
               )}
-            </button>
-          )}
+
+              {/* Navigation */}
+              <div className="flex items-center justify-between mt-8 pt-6 border-t border-white/5">
+                {currentStep > 1 ? (
+                  <button
+                    onClick={() => setCurrentStep(s => s - 1)}
+                    className="flex items-center gap-2 px-5 py-2.5 text-white/50 hover:text-white border border-white/10 rounded-lg hover:border-white/20 transition-colors"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                {currentStep < totalSteps ? (
+                  <button
+                    onClick={() => setCurrentStep(s => s + 1)}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                    className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-semibold rounded-lg transition-all shadow-lg shadow-blue-500/25 disabled:opacity-50"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Registering...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="h-4 w-4" />
+                        Register on ADP
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Why register */}
+            <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">Why register?</h3>
+              <div className="space-y-4">
+                {[
+                  { icon: Bot, title: "AI agents find you", desc: "Autonomous agents discover your service and initiate deals on behalf of their users." },
+                  { icon: TrendingUp, title: "24/7 lead generation", desc: "Your service is always available for matching — even while you sleep." },
+                  { icon: Shield, title: "You stay in control", desc: "Set your own prices, service area, and approval rules. Nothing happens without your consent." },
+                  { icon: Globe, title: "Global reach", desc: "Get discovered by agents worldwide, or limit to your local area." },
+                ].map((item) => (
+                  <div key={item.title} className="flex gap-3">
+                    <div className="shrink-0 p-2 bg-blue-500/10 rounded-lg h-fit">
+                      <item.icon className="h-4 w-4 text-blue-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">{item.title}</p>
+                      <p className="text-xs text-white/35 leading-relaxed mt-0.5">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6">
+              <h3 className="text-sm font-semibold text-white/50 mb-4">Live on the network</h3>
+              <div className="grid grid-cols-2 gap-4">
+                {[
+                  { value: "63+", label: "Active agents" },
+                  { value: "8", label: "Categories" },
+                  { value: "16", label: "Transactions" },
+                  { value: "€0", label: "Cost to join" },
+                ].map((stat) => (
+                  <div key={stat.label} className="text-center p-3 bg-white/[0.02] rounded-xl">
+                    <p className="text-xl font-bold text-white">{stat.value}</p>
+                    <p className="text-xs text-white/30 mt-0.5">{stat.label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* How it works mini */}
+            <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6">
+              <h3 className="text-sm font-semibold text-white/50 mb-4">How it works</h3>
+              <div className="space-y-3">
+                {[
+                  { step: "1", text: "You register your service (2 min)" },
+                  { step: "2", text: "AI agents discover you via ADP" },
+                  { step: "3", text: "Agents negotiate on behalf of customers" },
+                  { step: "4", text: "You approve the deal & deliver" },
+                ].map((item) => (
+                  <div key={item.step} className="flex items-center gap-3">
+                    <div className="shrink-0 w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center">
+                      <span className="text-xs font-bold text-blue-400">{item.step}</span>
+                    </div>
+                    <p className="text-sm text-white/50">{item.text}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Trust */}
+            <div className="text-center py-4">
+              <div className="flex items-center justify-center gap-2 text-xs text-white/20 mb-2">
+                <Shield className="h-3 w-3" />
+                <span>Open protocol — No vendor lock-in</span>
+              </div>
+              <p className="text-xs text-white/15">
+                ADP is built on open standards. Your data stays yours.
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
+
+      <Footer />
     </div>
   )
 }
@@ -654,74 +752,92 @@ function SuccessView({ name, serviceTitle, agentDid, apiKey }: { name: string; s
   }
 
   return (
-    <div className="min-h-screen bg-[#050810] flex items-center justify-center px-4">
-      <div className="max-w-lg w-full text-center">
-        <div className="inline-flex p-4 bg-blue-500/10 rounded-full mb-6">
-          <CheckCircle2 className="h-16 w-16 text-blue-400" />
-        </div>
-        <h1 className="text-3xl font-bold text-white mb-3">Welcome, {name}!</h1>
-        <p className="text-lg text-white/50 mb-2">
-          You are now registered as a service provider on ADP.
-        </p>
-        <p className="text-sm text-white/30 mb-6">
-          &ldquo;{serviceTitle}&rdquo; is now discoverable by AI agents worldwide.
-        </p>
+    <div className="min-h-screen bg-[#050810] text-white">
+      <Navbar />
 
-        {agentDid && (
-          <div className="p-4 bg-white/5 border border-white/10 rounded-xl mb-4 text-left">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs text-white/30">Your Agent DID</p>
-              <button
-                onClick={() => copyToClipboard(agentDid, "did")}
-                className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
-              >
-                {copied === "did" ? "Copied!" : "Copy"}
-              </button>
-            </div>
-            <p className="text-sm text-blue-400 font-mono break-all">{agentDid}</p>
+      <section className="relative overflow-hidden pt-16">
+        <div className="absolute inset-0">
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-green-500/8 rounded-full blur-[150px]" />
+        </div>
+
+        <div className="relative max-w-2xl mx-auto px-4 sm:px-6 pt-20 sm:pt-28 pb-20 text-center">
+          <div className="inline-flex p-4 bg-green-500/10 border border-green-500/20 rounded-full mb-6">
+            <CheckCircle2 className="h-16 w-16 text-green-400" />
           </div>
-        )}
+          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3">Welcome, {name}!</h1>
+          <p className="text-lg text-white/50 mb-2">
+            You are now registered as a service provider on ADP.
+          </p>
+          <p className="text-sm text-white/30 mb-8">
+            &ldquo;{serviceTitle}&rdquo; is now discoverable by AI agents worldwide.
+          </p>
 
-        {apiKey && (
-          <div className="p-4 bg-yellow-500/5 border border-yellow-500/20 rounded-xl mb-6 text-left">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs text-yellow-400/70">Your API Key (shown only once!)</p>
-              <button
-                onClick={() => copyToClipboard(apiKey, "key")}
-                className="text-xs text-yellow-400 hover:text-yellow-300 transition-colors"
+          <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6 sm:p-8 text-left space-y-4">
+            {agentDid && (
+              <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs text-white/30">Your Agent DID</p>
+                  <button
+                    onClick={() => copyToClipboard(agentDid, "did")}
+                    className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                  >
+                    {copied === "did" ? "Copied!" : "Copy"}
+                  </button>
+                </div>
+                <p className="text-sm text-blue-400 font-mono break-all">{agentDid}</p>
+              </div>
+            )}
+
+            {apiKey && (
+              <div className="p-4 bg-yellow-500/5 border border-yellow-500/20 rounded-xl">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs text-yellow-400/70">Your API Key (shown only once!)</p>
+                  <button
+                    onClick={() => copyToClipboard(apiKey, "key")}
+                    className="text-xs text-yellow-400 hover:text-yellow-300 transition-colors"
+                  >
+                    {copied === "key" ? "Copied!" : "Copy"}
+                  </button>
+                </div>
+                <p className="text-xs text-yellow-400 font-mono break-all">{apiKey}</p>
+                <p className="text-xs text-yellow-500/50 mt-2">
+                  Save this key securely. Use it as: Authorization: Bearer &lt;key&gt;
+                </p>
+              </div>
+            )}
+
+            <div className="pt-2 space-y-3">
+              <a
+                href="https://www.bidz.nl/adp"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
               >
-                {copied === "key" ? "Copied!" : "Copy"}
-              </button>
+                <TrendingUp className="h-4 w-4" />
+                View Live Dashboard
+              </a>
+              <Link
+                href="/docs"
+                className="flex items-center justify-center gap-2 w-full py-3 border border-white/10 hover:border-white/20 text-white/60 font-medium rounded-lg transition-colors"
+              >
+                Read the API Documentation
+              </Link>
             </div>
-            <p className="text-xs text-yellow-400 font-mono break-all">{apiKey}</p>
-            <p className="text-xs text-yellow-500/50 mt-2">
-              Save this key securely. Use it as: Authorization: Bearer &lt;key&gt;
-            </p>
           </div>
-        )}
 
-        <div className="space-y-3">
-          <a
-            href="https://www.bidz.nl/adp"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
-          >
-            View Live Dashboard
-          </a>
-          <Link
-            href="/docs"
-            className="block w-full py-3 border border-white/10 hover:border-white/20 text-white/60 font-medium rounded-lg transition-colors"
-          >
-            Read the API Documentation
-          </Link>
+          <div className="mt-10 p-4 bg-white/[0.02] border border-white/[0.06] rounded-xl">
+            <h3 className="text-sm font-semibold text-white/50 mb-2">What happens next?</h3>
+            <div className="space-y-2 text-sm text-white/35 text-left">
+              <p>• AI agents can now discover your service via the ADP network</p>
+              <p>• When an agent wants to hire you, you&apos;ll receive a negotiation proposal</p>
+              <p>• Check your inbox via <code className="text-blue-400/60 text-xs">GET /agents/{'<'}did{'>'}/inbox</code></p>
+              <p>• Accept, reject, or counter-offer — you&apos;re always in control</p>
+            </div>
+          </div>
         </div>
+      </section>
 
-        <div className="mt-8 flex items-center justify-center gap-2 text-xs text-white/30">
-          <Zap className="h-3 w-3 text-blue-400" />
-          <span>Powered by Agent Discovery Protocol</span>
-        </div>
-      </div>
+      <Footer />
     </div>
   )
 }

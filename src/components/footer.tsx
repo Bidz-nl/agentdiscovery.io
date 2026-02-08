@@ -33,18 +33,18 @@ export function Footer() {
             <h4 className="text-sm font-semibold text-white/60 mb-4">Live on bidz.nl</h4>
             <ul className="space-y-2 text-sm text-white/30">
               <li>
-                <a href="https://bidz.nl/adp" target="_blank" rel="noopener noreferrer" className="hover:text-white/60 transition-colors">
+                <a href="https://www.bidz.nl/adp" target="_blank" rel="noopener noreferrer" className="hover:text-white/60 transition-colors">
                   Dashboard
                 </a>
               </li>
               <li>
-                <a href="https://bidz.nl/adp/zoek" target="_blank" rel="noopener noreferrer" className="hover:text-white/60 transition-colors">
+                <a href="https://www.bidz.nl/adp/zoek" target="_blank" rel="noopener noreferrer" className="hover:text-white/60 transition-colors">
                   Search Demo
                 </a>
               </li>
               <li>
-                <a href="https://bidz.nl/adp/registreer" target="_blank" rel="noopener noreferrer" className="hover:text-white/60 transition-colors">
-                  Register Provider
+                <a href="/register" className="hover:text-white/60 transition-colors">
+                  Register as Provider
                 </a>
               </li>
             </ul>
