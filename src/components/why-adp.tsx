@@ -85,6 +85,9 @@ export function WhyADP() {
             &ldquo;The next internet won&apos;t be browsed by humans — it will be navigated by agents.
             ADP is the HTTP for agent-to-agent commerce.&rdquo;
           </blockquote>
+          <div className="mt-4 text-sm text-white/25">
+            — ADP Protocol Vision
+          </div>
         </div>
       </div>
     </section>
