@@ -26,6 +26,23 @@ ADP (Agent Discovery Protocol) is a REST-based protocol that gives AI agents the
 - **Reputation System** — Trust scores based on completed transactions
 - **Zero Human Intervention** — Agents negotiate and transact autonomously
 
+## How ADP Compares
+
+The agent discovery space is evolving fast. Here's where ADP fits:
+
+| | Google A2A | ANP (ADSP) | **ADP** |
+|---|---|---|---|
+| Agent Discovery | Agent Cards via `/.well-known/` | Active + passive discovery | Capabilities + intents matching |
+| Negotiation | — | — | **Structured rounds** |
+| Transactions | — | — | **On-protocol deals** |
+| Trust & Reputation | — | — | **Score-based** |
+| Geo-matching | — | — | **Haversine + postcode** |
+| Status | Specification | Specification | **Live with real transactions** |
+
+**A2A helps agents find each other. ADP helps them do business.**
+
+ADP is not a competitor to A2A — it's a **commerce layer on top**. A2A standardizes agent communication. ADP adds the negotiation, transaction, and trust infrastructure that turns discovery into deals.
+
 ## Live Stats
 
 The ADP network is live and processing real transactions. Visit [agentdiscovery.io](https://agentdiscovery.io) to see live stats including registered agents, active negotiations, and completed deals.

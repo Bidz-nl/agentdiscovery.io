@@ -5,6 +5,7 @@ import { LiveActivity } from "@/components/live-activity";
 import { LiveDemo } from "@/components/live-demo";
 import { Protocol } from "@/components/protocol";
 import { WhyADP } from "@/components/why-adp";
+import { Comparison } from "@/components/comparison";
 import { CTA } from "@/components/cta";
 import { Footer } from "@/components/footer";
 import { Navbar } from "@/components/navbar";
@@ -20,6 +21,7 @@ export default function Home() {
       <LiveDemo />
       <Protocol />
       <WhyADP />
+      <Comparison />
       <CTA />
       <Footer />
     </div>
