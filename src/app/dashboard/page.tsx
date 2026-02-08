@@ -213,10 +213,17 @@ function Section({ title, icon, count, children, defaultOpen = true }: {
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [hasMore, setHasMore] = useState(false)
+  const [offset, setOffset] = useState(0)
+  const PAGE_SIZE = 20
 
-  useEffect(() => {
-    fetch(`${API_BASE}/dashboard`)
+  const fetchData = (currentOffset: number, append = false) => {
+    const url = `${API_BASE}/dashboard?limit=${PAGE_SIZE}&offset=${currentOffset}`
+    if (append) setLoadingMore(true)
+
+    fetch(url)
       .then(res => {
         if (!res.ok) throw new Error(`API error: ${res.status}`)
         return res.json()
@@ -224,14 +231,40 @@ export default function DashboardPage() {
       .then(json => {
         if (json.error) throw new Error(json.error.message || "API returned an error")
         if (!json.stats) throw new Error("Invalid response")
-        setData(json)
+
+        if (append && data) {
+          setData({
+            ...json,
+            agents: [...data.agents, ...json.agents],
+            capabilities: [...data.capabilities, ...json.capabilities],
+            intents: [...data.intents, ...json.intents],
+            negotiations: [...data.negotiations, ...json.negotiations],
+            transactions: [...data.transactions, ...json.transactions],
+          })
+        } else {
+          setData(json)
+        }
+        setHasMore(json.pagination?.hasMore ?? false)
         setLoading(false)
+        setLoadingMore(false)
       })
       .catch(err => {
         setError(err.message)
         setLoading(false)
+        setLoadingMore(false)
       })
+  }
+
+  useEffect(() => {
+    fetchData(0)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const loadMore = () => {
+    const newOffset = offset + PAGE_SIZE
+    setOffset(newOffset)
+    fetchData(newOffset, true)
+  }
 
   if (loading) {
     return (
@@ -657,6 +690,26 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Load More */}
+        {hasMore && (
+          <div className="text-center pt-4">
+            <button
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="px-8 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium rounded-lg transition-colors"
+            >
+              {loadingMore ? (
+                <span className="flex items-center gap-2">
+                  <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Loading...
+                </span>
+              ) : (
+                `Load more (showing ${data.agents.length} of ${stats.totalAgents} agents)`
+              )}
+            </button>
+          </div>
+        )}
       </section>
 
       <Footer />
