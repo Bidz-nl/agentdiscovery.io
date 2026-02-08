@@ -1,4 +1,4 @@
-import { Bot, Search, Handshake, CreditCard } from "lucide-react"
+import { Bot, Search, Handshake, CreditCard, ChevronRight } from "lucide-react"
 
 const steps = [
   {
@@ -58,23 +58,36 @@ export function HowItWorks() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {steps.map((step) => {
+          {steps.map((step, index) => {
             const colors = colorMap[step.color]
             return (
-              <div
-                key={step.step}
-                className={`relative p-6 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-all hover:-translate-y-1 shadow-lg ${colors.glow}`}
-              >
-                <div className="flex items-center gap-3 mb-4">
-                  <div className={`p-2.5 rounded-xl ${colors.bg}`}>
-                    <step.icon className={`h-5 w-5 ${colors.text}`} />
-                  </div>
-                  <span className={`text-xs font-mono font-bold ${colors.text}`}>
-                    STEP {step.step}
+              <div key={step.step} className="relative flex items-stretch">
+                <div
+                  className={`relative flex-1 p-6 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-all hover:-translate-y-1 shadow-lg ${colors.glow} overflow-hidden`}
+                >
+                  {/* Large background step number */}
+                  <span className={`absolute -right-2 -top-4 text-[7rem] font-black leading-none ${colors.text} opacity-[0.04] select-none pointer-events-none`}>
+                    {step.step}
                   </span>
+                  <div className="relative">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className={`p-2.5 rounded-xl ${colors.bg}`}>
+                        <step.icon className={`h-5 w-5 ${colors.text}`} />
+                      </div>
+                      <span className={`text-xs font-mono font-bold ${colors.text}`}>
+                        STEP {step.step}
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-bold text-white mb-2">{step.title}</h3>
+                    <p className="text-sm text-white/40 leading-relaxed">{step.description}</p>
+                  </div>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">{step.title}</h3>
-                <p className="text-sm text-white/40 leading-relaxed">{step.description}</p>
+                {/* Arrow connector between cards (desktop only) */}
+                {index < steps.length - 1 && (
+                  <div className="hidden lg:flex items-center -mr-3 z-10">
+                    <ChevronRight className="h-5 w-5 text-white/10" />
+                  </div>
+                )}
               </div>
             )
           })}

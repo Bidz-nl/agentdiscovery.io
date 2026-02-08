@@ -28,23 +28,28 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Live */}
+          {/* Get Started */}
           <div>
-            <h4 className="text-sm font-semibold text-white/60 mb-4">Live on bidz.nl</h4>
+            <h4 className="text-sm font-semibold text-white/60 mb-4">Get Started</h4>
             <ul className="space-y-2 text-sm text-white/30">
               <li>
-                <a href="https://www.bidz.nl/adp" target="_blank" rel="noopener noreferrer" className="hover:text-white/60 transition-colors">
-                  Dashboard
-                </a>
-              </li>
-              <li>
-                <a href="https://www.bidz.nl/adp/zoek" target="_blank" rel="noopener noreferrer" className="hover:text-white/60 transition-colors">
-                  Search Demo
+                <a href="/dashboard" className="hover:text-white/60 transition-colors">
+                  Live Dashboard
                 </a>
               </li>
               <li>
                 <a href="/register" className="hover:text-white/60 transition-colors">
                   Register as Provider
+                </a>
+              </li>
+              <li>
+                <a href="/docs" className="hover:text-white/60 transition-colors">
+                  API Documentation
+                </a>
+              </li>
+              <li>
+                <a href="https://github.com/Bidz-nl/agentdiscovery.io" target="_blank" rel="noopener noreferrer" className="hover:text-white/60 transition-colors">
+                  GitHub
                 </a>
               </li>
             </ul>

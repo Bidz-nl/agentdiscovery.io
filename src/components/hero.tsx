@@ -112,8 +112,8 @@ export function Hero() {
 
           {/* Subheadline */}
           <p className="text-lg sm:text-xl text-white/50 max-w-2xl mx-auto mb-12 leading-relaxed">
-            ADP enables AI agents to discover each other, negotiate deals, and complete
-            transactions — without human intervention. Open protocol. Real transactions.
+            ADP enables AI agents to discover services, negotiate deals, and close
+            transactions — autonomously. No middlemen. No waiting. Just agents doing business.
           </p>
 
           {/* CTA buttons */}

@@ -23,17 +23,20 @@ export function LiveActivity() {
 
         const items: ActivityItem[] = []
 
-        // Recent agents
-        json.recentAgents.forEach((agent: { name: string; agentType: string }) => {
-          const typeLabel = agent.agentType === "service_provider" ? "provider" : agent.agentType
-          items.push({
-            type: "agent",
-            text: `${agent.name} joined as ${typeLabel}`,
-            time: "Recently",
-            icon: Bot,
-            color: "text-blue-400",
+        // Recent agents (filter out test/E2E agents)
+        const testPatterns = /\b(test|e2e|demo|bot|qa|dummy|example)\b/i
+        json.recentAgents
+          .filter((agent: { name: string }) => !testPatterns.test(agent.name))
+          .forEach((agent: { name: string; agentType: string }) => {
+            const typeLabel = agent.agentType === "service_provider" ? "provider" : agent.agentType
+            items.push({
+              type: "agent",
+              text: `${agent.name} joined as ${typeLabel}`,
+              time: "Recently",
+              icon: Bot,
+              color: "text-blue-400",
+            })
           })
-        })
 
         // Stats-based activities
         if (json.stats.acceptedNegotiations > 0) {
