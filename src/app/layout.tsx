@@ -16,6 +16,9 @@ export const metadata: Metadata = {
   title: "Agent Discovery Protocol — Autonomous Agent Commerce",
   description: "ADP enables AI agents to discover each other, negotiate deals, and complete transactions autonomously. Open protocol. Real transactions.",
   keywords: ["ADP", "Agent Discovery Protocol", "AI agents", "autonomous commerce", "protocol", "agent-to-agent"],
+  verification: {
+    google: "RTVaNm1aWiIlph0fW2i0xIcYqHAHOtq8WTQVBdfWnlI",
+  },
   openGraph: {
     title: "Agent Discovery Protocol",
     description: "The protocol for autonomous agent commerce",
