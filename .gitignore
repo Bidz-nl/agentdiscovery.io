@@ -39,6 +39,13 @@ yarn-error.log*
 # deploy script (contains secret deploy hook URL)
 deploy.sh
 
+# business documents (not for public repo)
+ADP-Consumer-App-BuildContext.md
+ADP-Consumer-App-BusinessPlan.docx
+ADP-*.docx
+ADP-*.md
+!README.md
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
