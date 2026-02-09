@@ -2,7 +2,7 @@ import { Hero } from "@/components/hero";
 import { TrustBar } from "@/components/trust-bar";
 import { HowItWorks } from "@/components/how-it-works";
 import { LiveActivity } from "@/components/live-activity";
-import { LiveDemo } from "@/components/live-demo";
+import { AgentDemo } from "@/components/agent-demo";
 import { Protocol } from "@/components/protocol";
 import { WhyADP } from "@/components/why-adp";
 import { Comparison } from "@/components/comparison";
@@ -18,7 +18,7 @@ export default function Home() {
       <TrustBar />
       <LiveActivity />
       <HowItWorks />
-      <LiveDemo />
+      <AgentDemo />
       <Protocol />
       <WhyADP />
       <Comparison />
