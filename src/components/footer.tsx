@@ -53,7 +53,7 @@ export function Footer() {
                 </a>
               </li>
               <li>
-                <a href="mailto:info@bidz.nl" className="hover:text-white/60 transition-colors">
+                <a href="mailto:hello@agentdiscovery.io" className="hover:text-white/60 transition-colors">
                   Contact
                 </a>
               </li>
