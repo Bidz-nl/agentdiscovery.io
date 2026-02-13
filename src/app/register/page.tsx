@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Building2, MapPin, Clock, DollarSign, ChevronRight, ChevronLeft, CheckCircle2, Zap, Globe, Phone, Mail, Plus, X, Tag, Package, Briefcase, Shield, Users, TrendingUp, Bot } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -63,7 +63,9 @@ const DAYS = [
   { id: "sunday", label: "Sun" },
 ]
 
-const API_BASE = "https://www.bidz.nl/api/adp/v1"
+const API_BASE = typeof window !== 'undefined'
+  ? `${window.location.origin}/api/adp`
+  : "https://www.bidz.nl/api/adp/v1"
 
 // ============================================
 // Main Page Component
@@ -75,6 +77,22 @@ export default function RegisterProviderPage() {
   const [agentDid, setAgentDid] = useState<string | null>(null)
   const [apiKey, setApiKey] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [liveStats, setLiveStats] = useState<{ agents: number; capabilities: number; transactions: number } | null>(null)
+
+  useEffect(() => {
+    fetch(`${API_BASE}/dashboard?summary=true`)
+      .then(res => res.json())
+      .then(json => {
+        if (json.stats) {
+          setLiveStats({
+            agents: json.stats.totalAgents || 0,
+            capabilities: json.stats.activeCapabilities || 0,
+            transactions: json.stats.completedTransactions || 0,
+          })
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   const [form, setForm] = useState<ProviderFormData>({
     name: "",
@@ -351,9 +369,9 @@ export default function RegisterProviderPage() {
               <h3 className="text-sm font-semibold text-white/50 mb-4">Live on the network</h3>
               <div className="grid grid-cols-2 gap-4">
                 {[
-                  { value: "63+", label: "Active agents" },
-                  { value: "8", label: "Categories" },
-                  { value: "16", label: "Transactions" },
+                  { value: liveStats ? `${liveStats.agents}+` : "—", label: "Active agents" },
+                  { value: liveStats ? `${liveStats.capabilities}` : "—", label: "Services" },
+                  { value: liveStats ? `${liveStats.transactions}` : "—", label: "Transactions" },
                   { value: "€0", label: "Cost to join" },
                 ].map((stat) => (
                   <div key={stat.label} className="text-center p-3 bg-white/[0.02] rounded-xl">
@@ -808,9 +826,7 @@ function SuccessView({ name, serviceTitle, agentDid, apiKey }: { name: string; s
 
             <div className="pt-2 space-y-3">
               <a
-                href="https://www.bidz.nl/adp"
-                target="_blank"
-                rel="noopener noreferrer"
+                href="/dashboard"
                 className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
               >
                 <TrendingUp className="h-4 w-4" />
