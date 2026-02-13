@@ -1,4 +1,7 @@
+"use client"
+
 import Image from "next/image"
+import { ScrollReveal } from "./scroll-reveal"
 
 export function CTA() {
   return (
@@ -7,6 +10,7 @@ export function CTA() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-500/5 rounded-full blur-[120px]" />
       </div>
 
+      <ScrollReveal>
       <div className="relative max-w-4xl mx-auto px-4 sm:px-6 text-center">
         <Image
           src="/adp-logo.png"
@@ -66,6 +70,7 @@ export function CTA() {
           </a>
         </div>
       </div>
+      </ScrollReveal>
     </section>
   )
 }

@@ -1,4 +1,7 @@
+"use client"
+
 import { Check, Minus } from "lucide-react"
+import { ScrollReveal } from "./scroll-reveal"
 
 const features = [
   { name: "Agent Discovery", a2a: true, anp: true, adp: true },
@@ -22,21 +25,24 @@ export function Comparison() {
   return (
     <section className="relative py-24 sm:py-32 border-t border-white/5">
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 rounded-full text-xs text-white/50 mb-6">
-            Landscape
+        <ScrollReveal>
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 rounded-full text-xs text-white/50 mb-6">
+              Landscape
+            </div>
+            <h2 className="text-3xl sm:text-5xl font-bold mb-4">
+              Beyond{" "}
+              <span className="bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
+                discovery
+              </span>
+            </h2>
+            <p className="text-lg text-white/40 max-w-2xl mx-auto">
+              Other protocols help agents find each other. ADP helps them do business.
+            </p>
           </div>
-          <h2 className="text-3xl sm:text-5xl font-bold mb-4">
-            Beyond{" "}
-            <span className="bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
-              discovery
-            </span>
-          </h2>
-          <p className="text-lg text-white/40 max-w-2xl mx-auto">
-            Other protocols help agents find each other. ADP helps them do business.
-          </p>
-        </div>
+        </ScrollReveal>
 
+        <ScrollReveal delay={0.15}>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -59,6 +65,8 @@ export function Comparison() {
             </tbody>
           </table>
         </div>
+
+        </ScrollReveal>
 
         <p className="text-center text-sm text-white/25 mt-8">
           ADP is complementary to A2A — a commerce layer on top of agent communication.
