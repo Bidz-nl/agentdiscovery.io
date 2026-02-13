@@ -85,7 +85,9 @@ interface DashboardData {
   }>
 }
 
-const API_BASE = "https://www.bidz.nl/api/adp/v1"
+const API_BASE = typeof window !== 'undefined'
+  ? `${window.location.origin}/api/adp`
+  : "https://www.bidz.nl/api/adp/v1"
 
 // ============================================
 // Status & Type Badges
