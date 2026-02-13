@@ -57,9 +57,9 @@ export default function ProfilePage() {
             <p className="text-xs text-white/30 capitalize">{store.role || "—"}</p>
           </div>
           <div className="ml-auto">
-            <span className="flex items-center gap-1 text-xs text-green-400">
-              <span className="w-2 h-2 rounded-full bg-green-400" />
-              Online
+            <span className={`flex items-center gap-1 text-xs ${store.isOnline ? "text-green-400" : "text-white/30"}`}>
+              <span className={`w-2 h-2 rounded-full ${store.isOnline ? "bg-green-400" : "bg-white/20"}`} />
+              {store.isOnline ? "Online" : "Offline"}
             </span>
           </div>
         </div>

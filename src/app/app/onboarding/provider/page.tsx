@@ -67,6 +67,7 @@ export default function ProviderOnboarding() {
         selectedCategories.join(", "),
         selectedBrands.length > 0 ? `Merken: ${selectedBrands.join(", ")}` : "",
         specialization,
+        kvk ? `KvK: ${kvk}` : "",
       ].filter(Boolean).join(". ")
 
       const capTitle = selectedCategories.length > 0

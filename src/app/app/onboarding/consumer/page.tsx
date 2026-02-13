@@ -169,7 +169,7 @@ export default function ConsumerOnboarding() {
                   <button
                     key={pref.id}
                     onClick={() => togglePref(pref.id)}
-                    className={`p-4 rounded-xl border text-left transition-all ${
+                    className={`relative p-4 rounded-xl border text-left transition-all ${
                       isSelected
                         ? "bg-blue-500/10 border-blue-500/30"
                         : "bg-[#111827] border-white/5 hover:border-white/10"

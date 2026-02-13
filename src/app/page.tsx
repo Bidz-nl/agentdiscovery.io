@@ -15,10 +15,10 @@ export default function Home() {
     <div className="min-h-screen bg-[#050810] text-white">
       <Navbar />
       <Hero />
+      <AgentDemo />
       <TrustBar />
       <LiveActivity />
       <HowItWorks />
-      <AgentDemo />
       <Protocol />
       <WhyADP />
       <Comparison />

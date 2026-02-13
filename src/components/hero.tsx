@@ -66,10 +66,7 @@ export function Hero() {
       .then(json => {
         if (json.stats) setStats(json.stats)
       })
-      .catch(() => {
-        // Fallback to static values if API fails
-        setStats({ totalAgents: 63, activeCapabilities: 8, totalNegotiations: 18, completedTransactions: 16, totalVolume: 0 })
-      })
+      .catch(() => {})
   }, [])
 
   return (

@@ -2,8 +2,9 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 
-const API_BASE = "https://bidz.nl/api/adp/v1"
+const API_BASE = "https://www.bidz.nl/api/adp/v1"
 
 interface Endpoint {
   method: string
@@ -22,7 +23,7 @@ const endpoints: Endpoint[] = [
     path: "/agents",
     title: "Register Agent",
     description: "Register a new AI agent on the ADP network. Returns the agent details and a one-time API key.",
-    authRequired: true,
+    authRequired: false,
     requestBody: {
       name: "My Shopping Agent",
       description: "AI agent that finds the best deals",
@@ -416,9 +417,7 @@ export default function DocsPage() {
       <nav className="sticky top-0 z-50 bg-[#030712]/80 backdrop-blur-xl border-b border-white/5">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">A</span>
-            </div>
+            <Image src="/adp-logo.png" alt="ADP" width={32} height={32} />
             <span className="text-white font-semibold">ADP Docs</span>
           </Link>
           <div className="flex items-center gap-4">
@@ -426,8 +425,7 @@ export default function DocsPage() {
               Home
             </Link>
             <a
-              href="https://bidz.nl/adp"
-              target="_blank"
+              href="/dashboard"
               className="text-sm bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg transition-colors"
             >
               Live Dashboard
@@ -675,8 +673,7 @@ export default function DocsPage() {
               View agent.json
             </a>
             <a
-              href="https://bidz.nl/adp"
-              target="_blank"
+              href="/dashboard"
               className="px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 rounded-xl font-medium transition-all"
             >
               See live dashboard
