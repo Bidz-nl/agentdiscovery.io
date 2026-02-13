@@ -585,9 +585,9 @@ export default function DashboardPage() {
                           <div className="bg-white/[0.03] rounded-lg p-3">
                             <div className="flex items-center gap-3 mb-1">
                               <span className="font-bold text-sm text-white">
-                                €{(proposal.terms.price / 100).toFixed(2)}
+                                {proposal.terms?.price != null ? `€${(proposal.terms.price / 100).toFixed(2)}` : 'Rejected'}
                               </span>
-                              {proposal.terms.shippingCost === 0 && (
+                              {proposal.terms?.shippingCost === 0 && (
                                 <span className="text-xs text-green-400/60 border border-green-500/20 px-1.5 py-0.5 rounded">
                                   Free shipping
                                 </span>
@@ -657,10 +657,10 @@ export default function DashboardPage() {
                   return (
                     <div className="mt-3 flex gap-4 text-xs text-white/30">
                       {r.buyerRating && (
-                        <span>Buyer: {"★".repeat(r.buyerRating)} — &ldquo;{r.buyerComment}&rdquo;</span>
+                        <span>Buyer: {"★".repeat(Math.round(r.buyerRating))} — &ldquo;{r.buyerComment}&rdquo;</span>
                       )}
                       {r.sellerRating && (
-                        <span>Seller: {"★".repeat(r.sellerRating)} — &ldquo;{r.sellerComment}&rdquo;</span>
+                        <span>Seller: {"★".repeat(Math.round(r.sellerRating))} — &ldquo;{r.sellerComment}&rdquo;</span>
                       )}
                     </div>
                   )
