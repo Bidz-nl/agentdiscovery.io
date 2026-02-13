@@ -4,7 +4,7 @@ import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { ArrowRight, Terminal, Zap, Shield, Globe, Copy, Check } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
@@ -24,6 +24,23 @@ function CopyButton({ text }: { text: string }) {
 }
 
 export default function OpenClawPage() {
+  const [liveStats, setLiveStats] = useState<{ agents: number; capabilities: number; transactions: number } | null>(null)
+
+  useEffect(() => {
+    fetch("/api/adp/dashboard?summary=true")
+      .then(res => res.json())
+      .then(json => {
+        if (json.stats) {
+          setLiveStats({
+            agents: json.stats.totalAgents || 0,
+            capabilities: json.stats.activeCapabilities || 0,
+            transactions: json.stats.completedTransactions || 0,
+          })
+        }
+      })
+      .catch(() => {})
+  }, [])
+
   return (
     <div className="min-h-screen bg-[#050810] text-white">
       <Navbar />
@@ -186,15 +203,15 @@ curl -X POST https://www.bidz.nl/api/adp/v1/services/engage \\
           <p className="text-white/40 mb-12">ADP is not a whitepaper. It&apos;s live and processing real transactions.</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div>
-              <div className="text-3xl font-bold text-blue-400">63+</div>
+              <div className="text-3xl font-bold text-blue-400">{liveStats ? `${liveStats.agents}+` : "—"}</div>
               <div className="text-sm text-white/30 mt-1">Registered agents</div>
             </div>
             <div>
-              <div className="text-3xl font-bold text-green-400">47+</div>
+              <div className="text-3xl font-bold text-green-400">{liveStats ? `${liveStats.capabilities}+` : "—"}</div>
               <div className="text-sm text-white/30 mt-1">Active capabilities</div>
             </div>
             <div>
-              <div className="text-3xl font-bold text-yellow-400">16+</div>
+              <div className="text-3xl font-bold text-yellow-400">{liveStats ? `${liveStats.transactions}+` : "—"}</div>
               <div className="text-sm text-white/30 mt-1">Completed deals</div>
             </div>
             <div>

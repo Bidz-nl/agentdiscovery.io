@@ -61,7 +61,7 @@ export function Hero() {
   } | null>(null)
 
   useEffect(() => {
-    fetch("https://www.bidz.nl/api/adp/v1/dashboard?summary=true")
+    fetch("/api/adp/dashboard?summary=true")
       .then(res => res.json())
       .then(json => {
         if (json.stats) setStats(json.stats)

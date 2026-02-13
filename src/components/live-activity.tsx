@@ -16,7 +16,7 @@ export function LiveActivity() {
   const [visible, setVisible] = useState(0)
 
   useEffect(() => {
-    fetch("https://www.bidz.nl/api/adp/v1/dashboard?summary=true")
+    fetch("/api/adp/dashboard?summary=true")
       .then(res => res.json())
       .then(json => {
         if (!json.stats || !json.recentAgents) return
