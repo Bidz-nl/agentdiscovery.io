@@ -45,6 +45,14 @@ ADP-Consumer-App-BusinessPlan.docx
 ADP-*.docx
 ADP-*.md
 !README.md
+WBSO-*.txt
+WBSO-*.docx
+WBSO-*.pdf
+
+# internal notes / credentials
+*credentials*
+*secret*
+DM FILES/
 
 # typescript
 *.tsbuildinfo
