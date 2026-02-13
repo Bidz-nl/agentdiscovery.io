@@ -14,6 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://agentdiscovery.io"),
   title: "Agent Discovery Protocol — Autonomous Agent Commerce",
   description: "ADP enables AI agents to discover each other, negotiate deals, and complete transactions autonomously. Open protocol. Real transactions.",
   keywords: ["ADP", "Agent Discovery Protocol", "AI agents", "autonomous commerce", "protocol", "agent-to-agent"],
