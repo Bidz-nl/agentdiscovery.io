@@ -1,6 +1,5 @@
 "use client"
 
-import { useEffect } from "react"
 import Image from "next/image"
 import { FileText, BookOpen, Layers, Rocket, ArrowUpRight } from "lucide-react"
 
@@ -48,26 +47,6 @@ const highlights = [
 ]
 
 export default function DocsPage() {
-  useEffect(() => {
-    // Handle hash navigation with proper offset
-    const hash = window.location.hash
-    if (hash === '#quickstart') {
-      setTimeout(() => {
-        const element = document.getElementById('quickstart')
-        if (element) {
-          const navbarHeight = 64 // navbar h-16 = 64px
-          const extraPadding = 136 // additional padding for visual comfort
-          const offsetPosition = element.getBoundingClientRect().top + window.pageYOffset - navbarHeight - extraPadding
-          
-          window.scrollTo({
-            top: offsetPosition,
-            behavior: 'smooth'
-          })
-        }
-      }, 100)
-    }
-  }, [])
-
   return (
     <MarketingPageShell
       eyebrow="Documentation"
@@ -84,14 +63,13 @@ export default function DocsPage() {
         </a>
       }
     >
-      <section className="py-20 sm:py-28 relative">
+      <section id="quickstart" className="py-20 sm:py-28 relative scroll-mt-20">
         <div className="absolute inset-0 bg-grid opacity-30" />
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 grid lg:grid-cols-[1.05fr_0.95fr] gap-12 items-start">
           <div className="grid gap-4">
             {docLinks.map((doc, index) => (
               <ScrollReveal key={doc.title} delay={index * 0.08}>
                 <a
-                  id={doc.title === "ADP v2 Quickstart" ? "quickstart" : undefined}
                   href={doc.href}
                   target="_blank"
                   rel="noopener noreferrer"
