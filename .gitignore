@@ -45,8 +45,10 @@ deploy.sh
 ADP-Consumer-App-BuildContext.md
 ADP-Consumer-App-BusinessPlan.docx
 ADP-*.docx
-ADP-*.md
+ADP-*-BusinessPlan.md
+ADP-*-BuildContext.md
 !README.md
+!docs/**
 WBSO-*.txt
 WBSO-*.docx
 WBSO-*.pdf
