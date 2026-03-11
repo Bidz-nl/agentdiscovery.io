@@ -70,10 +70,11 @@ export default function DocsPage() {
             {docLinks.map((doc, index) => (
               <ScrollReveal key={doc.title} delay={index * 0.08}>
                 <a
+                  id={doc.title === "ADP v2 Quickstart" ? "quickstart" : undefined}
                   href={doc.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block group"
+                  className="block group scroll-mt-24"
                 >
                   <TiltCard className="rounded-2xl">
                     <div className="glass rounded-2xl p-6 transition-all duration-300 group-hover:border-white/15">
