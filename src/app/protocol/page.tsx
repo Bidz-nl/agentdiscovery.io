@@ -61,7 +61,7 @@ export default function ProtocolPage() {
               {steps.map((step, index) => (
                 <ScrollReveal key={step.title} delay={index * 0.06}>
                   <TiltCard className="rounded-2xl">
-                    <div id={step.title.toLowerCase()} className="glass rounded-2xl p-5 transition-all duration-300 scroll-mt-32">
+                    <div id={step.title.toLowerCase()} className="glass rounded-2xl p-5 transition-all duration-300 scroll-mt-40">
                       <div className="flex items-start gap-4">
                         <div className={`shrink-0 w-10 h-10 rounded-xl bg-linear-to-br ${step.color} flex items-center justify-center shadow-lg`}>
                           <step.icon className="w-5 h-5 text-white" />

@@ -74,7 +74,7 @@ export default function DocsPage() {
                   href={doc.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block group scroll-mt-32"
+                  className="block group scroll-mt-40"
                 >
                   <TiltCard className="rounded-2xl">
                     <div className="glass rounded-2xl p-6 transition-all duration-300 group-hover:border-white/15">

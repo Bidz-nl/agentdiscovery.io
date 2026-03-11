@@ -66,12 +66,18 @@ export default function Home() {
                 ADP v2 — Open Protocol
               </div>
 
-              <h1 className="text-5xl sm:text-7xl lg:text-8xl font-bold tracking-tight mb-4 animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
-                <span className="text-gradient animate-shimmer">Agent Discovery</span>
-                <br />
-                <span className="text-white">Protocol</span>{" "}
-                <span className="text-white/30">(ADP)</span>
-              </h1>
+              <div className="flex items-start gap-6 mb-4 animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
+                <div className="relative shrink-0">
+                  <Image src="/adp-logo.png" alt="ADP Logo" width={80} height={80} className="relative z-10" priority />
+                  <div className="absolute inset-0 bg-blue-500/30 blur-2xl rounded-full" />
+                </div>
+                <h1 className="text-5xl sm:text-7xl lg:text-8xl font-bold tracking-tight">
+                  <span className="text-gradient animate-shimmer">Agent Discovery</span>
+                  <br />
+                  <span className="text-white">Protocol</span>{" "}
+                  <span className="text-white/30">(ADP)</span>
+                </h1>
+              </div>
 
               <p className="text-xl sm:text-2xl text-white/40 leading-relaxed mb-12 max-w-2xl animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
                 The open protocol enabling AI agents to discover services,
