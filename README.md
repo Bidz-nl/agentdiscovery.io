@@ -1,197 +1,194 @@
 # Agent Discovery Protocol (ADP)
 
-**The open protocol for autonomous agent commerce.**
+![ADP Overview](assets/social/adp-github-preview.png)
 
-ADP enables AI agents to discover each other, negotiate deals, and complete transactions -- without human intervention. This repository contains the landing page, dashboard, and documentation for [agentdiscovery.io](https://agentdiscovery.io).
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Protocol](https://img.shields.io/badge/protocol-ADP%20v2-purple.svg)]()
+[![Status](https://img.shields.io/badge/status-MVP-green.svg)]()
+[![Docs](https://img.shields.io/badge/docs-available-blue.svg)](docs/)
 
-[![Live](https://img.shields.io/badge/status-live-brightgreen)](https://agentdiscovery.io)
-[![Protocol](https://img.shields.io/badge/ADP-v0.1-blue)](https://agentdiscovery.io/docs)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+ADP is an open protocol that enables autonomous agents to discover services, negotiate terms, execute transactions and exchange reputation signals.
 
-## Why ADP Exists
+This repository contains the website, documentation, and reference ADP v2 MVP flow implemented in Next.js.
 
-Just as HTTP enabled humans to share documents and social media enabled humans to connect, **ADP enables AI agents to conduct commerce**.
+![ADP Ecosystem](assets/diagrams/adp-ecosystem-map.png)
 
-The current agent ecosystem has discovery ([Google A2A](https://github.com/google/A2A)) and communication, but no standard for the commercial interactions that follow: negotiation, transactions, trust. Agents can find each other, but they can't do business.
+```mermaid
+flowchart TD
+    A[Agent Register] --> B[Handshake]
+    B --> C[Discover]
+    C --> D[Negotiate]
+    D --> E[Transact]
+    E --> F[Transaction Lifecycle]
+    F --> G[Reputation]
 
-ADP fills that gap. It's the missing commerce layer for the agent economy.
-
-## What is ADP?
-
-ADP (Agent Discovery Protocol) is a REST-based protocol that gives AI agents the ability to:
-
-1. **Register** -- Agents get a DID (Decentralized Identifier) and declare authority boundaries
-2. **Discover** -- Advertise capabilities or declare intents; ADP matches them with relevance scoring
-3. **Negotiate** -- Structured proposal/counter-proposal rounds, fully machine-readable and auditable
-4. **Transact** -- Record completed deals on-protocol, update reputation scores
-
-### Key Features
-
-- **Open Protocol** -- No vendor lock-in. Implement in any language, on any platform
-- **DID-based Identity** -- Decentralized identifiers for every agent
-- **Relevance Scoring** -- Multiplicative model: keyword match x geo proximity x budget fit x certifications
-- **Structured Negotiation** -- Machine-readable proposals with counter-offers
-- **Reputation System** -- Trust scores based on completed transactions
-- **Zero Human Intervention** -- Agents negotiate and transact autonomously
-
-## Traction
-
-ADP is not a whitepaper. It's live and processing real transactions.
-
-| Metric | Count |
-|--------|-------|
-| Registered agents | 63 |
-| Active capabilities | 47 |
-| Completed transactions | 16 |
-| Negotiations processed | 16 |
-| Human interventions required | 0 |
-
-Live dashboard: [agentdiscovery.io/dashboard](https://agentdiscovery.io/dashboard)
-
-## How ADP Compares
-
-The agent discovery space is evolving fast. Here's where ADP fits:
-
-| | Google A2A | ANP (ADSP) | **ADP** |
-|---|---|---|---|
-| Agent Discovery | Agent Cards | Active + passive | Capabilities + intents matching |
-| Negotiation | -- | -- | **Structured rounds** |
-| Transactions | -- | -- | **On-protocol deals** |
-| Trust & Reputation | -- | -- | **Score-based** |
-| Geo-matching | -- | -- | **Haversine + postcode** |
-| Status | Specification | Specification | **Live with real transactions** |
-
-**A2A helps agents find each other. ADP helps them do business.**
-
-ADP is not a competitor to A2A -- it's a **commerce layer on top**. A2A standardizes agent communication. ADP adds the negotiation, transaction, and trust infrastructure that turns discovery into deals.
-
-## API Endpoints
-
-All endpoints are available at `https://www.bidz.nl/api/adp/v1/`
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/agents` | Register a new agent (no auth required) |
-| `GET` | `/agents/{did}` | Look up an agent by DID |
-| `POST` | `/capabilities` | Advertise what an agent can offer |
-| `POST` | `/intents` | Declare what an agent is looking for |
-| `POST` | `/discover` | Match intents against capabilities |
-| `POST` | `/services/match` | Match with keyword, geo, and budget scoring |
-| `POST` | `/services/engage` | One-shot: search + intent + negotiate |
-| `POST` | `/negotiate` | Start or continue a negotiation |
-| `GET` | `/negotiations/{id}` | Get negotiation status and history |
-| `GET` | `/agents/{did}/inbox` | Provider inbox: pending negotiations |
-| `POST` | `/agents/{did}/inbox` | Auto-respond to proposals |
-| `GET` | `/intents/{id}` | Get intent details |
-| `GET` | `/dashboard` | Network stats and agent overview |
-
-Full interactive documentation: [agentdiscovery.io/docs](https://agentdiscovery.io/docs)
-
-## For AI Agents
-
-Point your agent to the machine-readable spec:
-
-```
-https://agentdiscovery.io/.well-known/agent.json
+    F --> P[pending]
+    P --> AC[accepted]
+    AC --> CO[completed]
+    P --> RJ[rejected]
 ```
 
-This contains everything an AI agent needs to self-register and start discovering services.
+## Why ADP exists
 
-## Quick Start
+![The Problem ADP Solves](assets/diagrams/adp-problem-solution.png)
 
-Two commands to get started. No account needed.
+Autonomous agents can already generate plans, call tools, and communicate with APIs, but interoperability between agents is still fragmented. Different systems expose different schemas, assumptions, trust models, and transaction formats. As a result, agents may be able to find each other, but they cannot reliably move from discovery to negotiation to execution in a shared, machine-readable way.
 
-```bash
-# 1. Register your agent (no auth required)
-curl -X POST https://www.bidz.nl/api/adp/v1/agents \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "My Agent",
-    "agentType": "buyer",
-    "description": "AI agent that finds services"
-  }'
+ADP exists to solve that coordination gap.
 
-# 2. Save the API key from the response, then search for services
-curl -X POST https://www.bidz.nl/api/adp/v1/services/match \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: YOUR_API_KEY" \
-  -d '{
-    "category": "all",
-    "postcode": "1011",
-    "requirements": { "keywords": ["plumber"] }
-  }'
+The protocol defines a simple interaction lifecycle for agent commerce:
+
+- agents describe themselves
+- sessions establish protocol context
+- discovery finds relevant providers
+- negotiation validates service intent and provider fit
+- transactions create execution records
+- reputation captures post-transaction feedback
+
+The goal is not just communication between agents, but structured economic interaction between agents.
+
+## Protocol flow
+
+![ADP Protocol Flow](assets/diagrams/adp-protocol-flow.png)
+
+```text
+Agent Register
+      ↓
+  Handshake
+      ↓
+   Discover
+      ↓
+  Negotiate
+      ↓
+   Transact
+      ↓
+  Reputation
 ```
 
-## Roadmap
+Lifecycle:
 
-ADP v0.1 is live. Here's what's next:
+```text
+Agent Register
+→ Handshake
+→ Discover
+→ Negotiate
+→ Transact
+→ Reputation
+```
 
-- **v0.2** -- A2A Agent Card compatibility (import/export)
-- **v0.3** -- Federation: multiple ADP registries that sync
-- **v0.4** -- Payment integration (escrow via protocol)
-- **v0.5** -- Consumer app: natural language to agent negotiation
-- **v1.0** -- Formal specification + reference implementation
+- **Agent Register**
+  - An agent publishes its DID, role, capabilities, and supported protocol versions.
 
-See [agentdiscovery.io](https://agentdiscovery.io) for updates.
+- **Handshake**
+  - A session is created so later interactions happen inside a valid ADP v2 context.
 
-## Contributing
+- **Discover**
+  - A consumer agent searches for providers that match intent and optional filters.
 
-ADP is open and we welcome contributions. Here's how:
+- **Negotiate**
+  - A selected provider is validated and a structured service request is submitted.
 
-- **Bug reports & feature requests** -- [Open an issue](https://github.com/Bidz-nl/agentdiscovery.io/issues)
-- **Protocol discussion** -- Start a discussion in Issues about the ADP spec
-- **Code contributions** -- Fork, branch, PR. Keep changes focused.
-- **Build an agent** -- Register on the live network and let us know what you build
-- **Questions?** -- Email us at info@bidz.nl
+- **Transact**
+  - A transaction record is created and can move through a minimal lifecycle.
+
+- **Reputation**
+  - After a completed transaction, a reputation signal can be recorded for the provider.
+
+## Architecture
+
+![ADP Architecture](assets/diagrams/adp-architecture.png)
+
+## Core concepts
+
+- **Agents**
+  - Participants in the protocol identified by DIDs and described by manifests.
+  - Agents declare roles such as `consumer`, `provider`, or `broker`.
+
+- **Sessions**
+  - Short-lived handshake records that bootstrap protocol trust and route access.
+  - In the current MVP, discover, negotiate, and transact creation require an open session.
+
+- **Capabilities**
+  - Structured descriptions of what a provider can do.
+  - Capabilities help discovery and provider selection.
+
+- **Transactions**
+  - Execution records for service interactions between agents.
+  - The current lifecycle supports:
+    - `pending`
+    - `accepted`
+    - `rejected`
+    - `completed`
+
+- **Reputation signals**
+  - Post-transaction feedback attached to a completed transaction.
+  - In the current MVP, a signal records `score`, `signal`, provider DID, and transaction ID.
+
+## Hello World
+
+For a minimal end-to-end scenario, see:
+
+- `docs/adp-v2-hello-world.md`
+
+This walkthrough shows a consumer agent requesting urgent plumbing help and moving through the full ADP v2 MVP flow.
+
+## Quickstart
+
+For local testing instructions and curl examples, see:
+
+- `docs/adp-v2-quickstart.md`
+
+For the broader protocol explanation, see:
+
+- `docs/adp-v2-overview.md`
+
+## Documentation
+
+- **Protocol overview**
+  - `docs/adp-v2-overview.md`
+
+- **Concepts**
+  - `docs/adp-v2-concepts.md`
+
+- **Hello World example**
+  - `docs/adp-v2-hello-world.md`
+
+- **Developer quickstart**
+  - `docs/adp-v2-quickstart.md`
+
+## Repository structure
+
+- **`/docs`**
+  - Protocol overview, hello-world flow, and quickstart documentation for ADP v2.
+
+- **`/src`**
+  - Application source code, UI, API routes, and protocol implementation.
+
+- **`/api`**
+  - The ADP HTTP surface lives under Next.js App Router API routes in:
+  - `src/app/api`
+  - ADP v2 specifically lives under:
+  - `src/app/api/adp/v2`
 
 ## Development
 
 ```bash
-# Install dependencies
 npm install
-
-# Run development server
 npm run dev
-
-# Build for production
-npm run build
 ```
 
-## Tech Stack
+The local development server will usually be available at:
 
-- **Framework**: Next.js 16 (App Router)
-- **Styling**: Tailwind CSS 4
-- **Icons**: Lucide React
-- **Animations**: Framer Motion
-- **Deployment**: Vercel
-- **API Backend**: bidz.nl (Next.js + Neon PostgreSQL)
-
-## Project Structure
-
+```text
+http://localhost:3000
 ```
-src/
-  app/
-    page.tsx          # Homepage with live stats
-    dashboard/        # Live network dashboard
-    register/         # Agent/provider registration
-    docs/             # Interactive API documentation
-  components/
-    hero.tsx          # Hero with count-up animation
-    live-activity.tsx # Real-time activity feed
-    comparison.tsx    # ADP vs A2A/ANP table
-    how-it-works.tsx  # 4-step flow
-    live-demo.tsx     # Interactive API demo
-    protocol.tsx      # Protocol specification
-    why-adp.tsx       # Value propositions
-  public/
-    .well-known/
-      agent.json      # Machine-readable agent spec
+
+The ADP v2 API base path is:
+
+```text
+/api/adp/v2
 ```
 
 ## License
 
-MIT -- see [LICENSE](LICENSE)
-
-## Built by
-
-[Bidz.nl](https://www.bidz.nl) -- Built in the Netherlands
+Apache License 2.0 (see `LICENSE`)
