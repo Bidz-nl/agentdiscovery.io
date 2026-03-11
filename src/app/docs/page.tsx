@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import Image from "next/image"
 import { FileText, BookOpen, Layers, Rocket, ArrowUpRight } from "lucide-react"
 
@@ -47,6 +48,26 @@ const highlights = [
 ]
 
 export default function DocsPage() {
+  useEffect(() => {
+    // Handle hash navigation with proper offset
+    const hash = window.location.hash
+    if (hash === '#quickstart') {
+      setTimeout(() => {
+        const element = document.getElementById('quickstart')
+        if (element) {
+          const navbarHeight = 64 // navbar h-16 = 64px
+          const extraPadding = 136 // additional padding for visual comfort
+          const offsetPosition = element.getBoundingClientRect().top + window.pageYOffset - navbarHeight - extraPadding
+          
+          window.scrollTo({
+            top: offsetPosition,
+            behavior: 'smooth'
+          })
+        }
+      }, 100)
+    }
+  }, [])
+
   return (
     <MarketingPageShell
       eyebrow="Documentation"
