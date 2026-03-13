@@ -2,10 +2,29 @@
 // ADP API Client — Typed wrapper for all ADP endpoints
 // ============================================
 
-// Use local proxy to avoid CORS issues (proxies to bidz.nl backend)
-const ADP_BASE = typeof window !== 'undefined'
-  ? `${window.location.origin}/api/adp`
-  : 'https://www.bidz.nl/api/adp/v1'
+import type {
+  CreateOwnerServiceRequest,
+  OwnerServiceDetailResponse,
+  OwnerServiceListResponse,
+  OwnerServiceReadModel,
+  UpdateOwnerServiceRequest,
+} from '@/lib/owner-services'
+import type {
+  OwnerProviderContextResponse,
+  SwitchActiveProviderRequest,
+} from '@/lib/owner-private-auth'
+
+function toNegotiationEngagePath() {
+  return '/api/app/negotiations/engage'
+}
+
+function toNegotiationActionPath(negotiationId: number) {
+  return `/api/app/negotiations/${negotiationId}/action`
+}
+
+function toNegotiationDetailResolverPath(negotiationId: number) {
+  return `/api/app/negotiations/${negotiationId}`
+}
 
 export interface AgentRegistration {
   name: string
@@ -107,6 +126,7 @@ export interface ServiceMatchQuery {
 
 export interface EngageRequest {
   agentDid: string
+  session_id?: string
   query: string
   category?: string
   keywords?: string[]
@@ -127,6 +147,7 @@ export interface EngageRequest {
 export interface NegotiationAction {
   // For counter-proposal / accept / reject
   negotiationId?: number
+  session_id?: string
   agentDid?: string
   proposal?: {
     price: number
@@ -146,9 +167,10 @@ export interface NegotiationAction {
 
 export interface InboxResponse {
   negotiationId: number
+  session_id?: string
   action: 'accept' | 'reject' | 'counter'
   proposal?: {
-    price?: { amount: number; currency: string }
+    price?: { amount: number; currency: string } | number
     availability?: string
     message?: string
   }
@@ -166,14 +188,22 @@ export interface MatchResult {
     availability: Record<string, unknown>
     status: string
   }
-  agent: {
+  provider?: {
     did: string
     name: string
     reputationScore: string
     totalTransactions: number
     successfulTransactions: number
   }
-  matchScore: number
+  agent?: {
+    did: string
+    name: string
+    reputationScore: string
+    totalTransactions: number
+    successfulTransactions: number
+  }
+  relevanceScore?: number
+  matchScore?: number
   distance?: number
 }
 
@@ -217,7 +247,7 @@ class ADPClient {
     this.apiKey = apiKey || null
   }
 
-  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  private async appRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     }
@@ -225,7 +255,7 @@ class ADPClient {
       headers['Authorization'] = `Bearer ${this.apiKey}`
     }
 
-    const res = await fetch(`${ADP_BASE}${path}`, {
+    const res = await fetch(path, {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
@@ -242,7 +272,7 @@ class ADPClient {
   // ---- Agent ----
 
   static async register(data: AgentRegistration): Promise<AgentResponse> {
-    const res = await fetch(`${ADP_BASE}/agents`, {
+    const res = await fetch('/api/app/agents/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -254,67 +284,138 @@ class ADPClient {
     return res.json()
   }
 
-  async getAgents() {
-    return this.request<{ agents: AgentResponse['agent'][] }>('GET', '/agents')
-  }
-
   // ---- Capabilities ----
 
-  async addCapability(data: CapabilityData) {
-    return this.request('POST', '/capabilities', data)
+  async getOwnerServices() {
+    return this.appRequest<OwnerServiceListResponse>('GET', '/api/app/provider/services')
   }
 
-  async getCapabilities(params?: { category?: string; status?: string }) {
-    const query = new URLSearchParams()
-    if (params?.category) query.set('category', params.category)
-    if (params?.status) query.set('status', params.status)
-    const qs = query.toString()
-    return this.request('GET', `/capabilities${qs ? `?${qs}` : ''}`)
+  async getOwnerService(serviceId: string) {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    if (this.apiKey) {
+      headers['Authorization'] = `Bearer ${this.apiKey}`
+    }
+
+    const res = await fetch(`/api/app/provider/services/${serviceId}`, {
+      method: 'GET',
+      headers,
+    })
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ error: { message: res.statusText } }))
+      const nextError = new Error(error.error?.message || `API error: ${res.status}`) as Error & {
+        status?: number
+        code?: string
+      }
+
+      nextError.status = res.status
+      nextError.code = error.error?.code
+
+      throw nextError
+    }
+
+    return res.json() as Promise<OwnerServiceDetailResponse>
+  }
+
+  async createOwnerService(data: CreateOwnerServiceRequest) {
+    return this.appRequest<{ service: OwnerServiceReadModel }>('POST', '/api/app/provider/services', data)
+  }
+
+  async updateOwnerService(serviceId: string, data: UpdateOwnerServiceRequest) {
+    return this.appRequest<{ service: OwnerServiceReadModel }>('PATCH', `/api/app/provider/services/${serviceId}`, data)
+  }
+
+  async publishOwnerService(serviceId: string) {
+    return this.appRequest<{ service: OwnerServiceReadModel }>(
+      'POST',
+      `/api/app/provider/services/${serviceId}/publish`
+    )
+  }
+
+  async unpublishOwnerService(serviceId: string) {
+    return this.appRequest<{ service: OwnerServiceReadModel }>(
+      'POST',
+      `/api/app/provider/services/${serviceId}/unpublish`
+    )
+  }
+
+  async archiveOwnerService(serviceId: string) {
+    return this.appRequest<{ service: OwnerServiceReadModel }>(
+      'POST',
+      `/api/app/provider/services/${serviceId}/archive`
+    )
+  }
+
+  async restoreOwnerService(serviceId: string) {
+    return this.appRequest<{ service: OwnerServiceReadModel }>(
+      'POST',
+      `/api/app/provider/services/${serviceId}/restore`
+    )
+  }
+
+  async deleteOwnerService(serviceId: string) {
+    return this.appRequest<{ deleted: boolean; serviceId: string }>(
+      'POST',
+      `/api/app/provider/services/${serviceId}/delete`
+    )
+  }
+
+  async getOwnerProviderContext() {
+    return this.appRequest<OwnerProviderContextResponse>('GET', '/api/app/provider/context')
+  }
+
+  async switchOwnerProviderContext(activeProviderDid: string) {
+    const body: SwitchActiveProviderRequest = {
+      activeProviderDid,
+    }
+
+    return this.appRequest<OwnerProviderContextResponse>('POST', '/api/app/provider/context/switch', body)
   }
 
   // ---- Discovery ----
 
-  async discover(params?: DiscoverQuery) {
-    const query = new URLSearchParams()
-    if (params?.category) query.set('category', params.category)
-    if (params?.limit) query.set('limit', String(params.limit))
-    if (params?.offset) query.set('offset', String(params.offset))
-    const qs = query.toString()
-    return this.request('GET', `/discover${qs ? `?${qs}` : ''}`)
-  }
-
   async matchServices(data: ServiceMatchQuery) {
-    return this.request<{ matches: MatchResult[] }>('POST', '/services/match', data)
+    return this.appRequest<{ matches: MatchResult[] }>('POST', '/api/app/services/match', data)
   }
 
   async engage(data: EngageRequest) {
-    return this.request('POST', '/services/engage', data)
+    return this.appRequest('POST', toNegotiationEngagePath(), data)
   }
 
   // ---- Negotiation ----
 
   async negotiate(data: NegotiationAction) {
-    return this.request('POST', '/negotiate', data)
+    return this.appRequest('POST', toNegotiationActionPath(data.negotiationId as number), data)
   }
 
   async getNegotiation(id: number) {
-    return this.request<{ negotiation: Negotiation }>('GET', `/negotiations/${id}`)
+    return this.appRequest<{ negotiation: Negotiation }>('GET', toNegotiationDetailResolverPath(id))
   }
 
   // ---- Provider Inbox ----
 
-  async getInbox(did: string) {
-    return this.request<{ inbox: InboxItem[]; stats: Record<string, number> }>('GET', `/agents/${did}/inbox`)
+  async getInbox(did: string, sessionId?: string) {
+    const query = new URLSearchParams()
+    if (sessionId) {
+      query.set('session_id', sessionId)
+    }
+    const qs = query.toString()
+    return this.appRequest<{ inbox: InboxItem[]; stats: Record<string, number> }>(
+      'GET',
+      `/api/app/providers/${encodeURIComponent(did)}/inbox${qs ? `?${qs}` : ''}`
+    )
   }
 
   async respondToInbox(did: string, data: InboxResponse) {
-    return this.request('POST', `/agents/${did}/inbox`, data)
+    return this.appRequest('POST', `/api/app/providers/${encodeURIComponent(did)}/inbox`, data)
   }
 
   // ---- Dashboard Stats ----
 
   async getStats() {
-    return this.request('GET', '/dashboard?summary=true')
+    return this.appRequest('GET', '/api/app/dashboard/summary')
   }
 }
 

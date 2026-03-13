@@ -85,9 +85,7 @@ interface DashboardData {
   }>
 }
 
-const API_BASE = typeof window !== 'undefined'
-  ? `${window.location.origin}/api/adp`
-  : "https://www.bidz.nl/api/adp/v1"
+const DASHBOARD_BASE = "/api/app/dashboard"
 
 // ============================================
 // Status & Type Badges
@@ -222,7 +220,7 @@ export default function DashboardPage() {
   const PAGE_SIZE = 20
 
   const fetchData = (currentOffset: number, append = false) => {
-    const url = `${API_BASE}/dashboard?limit=${PAGE_SIZE}&offset=${currentOffset}`
+    const url = `${DASHBOARD_BASE}?limit=${PAGE_SIZE}&offset=${currentOffset}`
     if (append) setLoadingMore(true)
 
     fetch(url)

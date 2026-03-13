@@ -17,6 +17,6 @@ export default function robots(): MetadataRoute.Robots {
         ],
       },
     ],
-    sitemap: 'https://agentdiscovery.io/sitemap.xml',
+    sitemap: 'https://www.agentdiscovery.io/sitemap.xml',
   }
 }

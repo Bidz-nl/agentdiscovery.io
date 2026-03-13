@@ -43,7 +43,13 @@ export default function ConsumerOnboarding() {
         description: `Consumer agent voor ${name}`,
       })
 
-      store.setCredentials(response.agent.did, response.apiKey, response.agent.id)
+      store.setAgentIdentity({
+        did: response.agent.did,
+        legacyAgentId: response.agent.id,
+      })
+      store.setAppSession({
+        apiKey: response.apiKey,
+      })
       store.setName(name)
       store.setPostcode(postcode)
       store.setPreferences(selectedPrefs)

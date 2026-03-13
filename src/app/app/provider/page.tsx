@@ -1,16 +1,20 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { Inbox, Check, SkipForward, Loader2, Star, MapPin, Wallet, ToggleLeft, ToggleRight } from "lucide-react"
+import { Inbox, Check, SkipForward, Loader2, Star, Wallet, ToggleLeft, ToggleRight } from "lucide-react"
 import { useAgentStore } from "../lib/agent-store"
 import ADPClient from "../lib/adp-client"
 import type { InboxItem } from "../lib/adp-client"
+import ProviderScopeCard from "./ProviderScopeCard"
+import { useProviderScope } from "./use-provider-scope"
 
 export default function ProviderDashboard() {
-  const router = useRouter()
-  const { apiKey, did, name, isOnline, setIsOnline, setInbox } = useAgentStore()
+  const { protocolSession, appSession, name, isOnline, setIsOnline, setInbox } = useAgentStore()
+  const protocolSessionId = protocolSession.sessionId
+  const appApiKey = appSession.apiKey
+  const { context: providerContext } = useProviderScope(appApiKey)
+  const providerDid = providerContext?.providerScope.activeProviderDid ?? null
 
   const [items, setItems] = useState<InboxItem[]>([])
   const [stats, setStats] = useState<Record<string, number>>({})
@@ -18,11 +22,25 @@ export default function ProviderDashboard() {
   const [actingOn, setActingOn] = useState<number | null>(null)
   const [error, setError] = useState("")
 
+  const promptCounterPrice = useCallback((currentPrice: number) => {
+    const input = window.prompt("Nieuw tegenvoorstel in euro", (currentPrice / 100).toFixed(2))
+    if (input === null) return null
+    const normalized = Number.parseFloat(input.replace(",", "."))
+    if (!Number.isFinite(normalized) || normalized <= 0) {
+      setError("Voer een geldig bedrag in voor het tegenvoorstel.")
+      return null
+    }
+    return Math.round(normalized * 100)
+  }, [])
+
   const fetchInbox = useCallback(async () => {
-    if (!apiKey || !did) return
+    if (!providerDid) {
+      setIsLoading(false)
+      return
+    }
     try {
-      const client = new ADPClient(apiKey)
-      const response = await client.getInbox(did)
+      const client = new ADPClient(appApiKey || undefined)
+      const response = await client.getInbox(providerDid, protocolSessionId || undefined)
       setItems(response.inbox || [])
       setStats(response.stats || {})
       setInbox(response.inbox || [])
@@ -31,7 +49,7 @@ export default function ProviderDashboard() {
     } finally {
       setIsLoading(false)
     }
-  }, [apiKey, did, setInbox, error])
+  }, [providerDid, protocolSessionId, appApiKey, setInbox, error])
 
   useEffect(() => {
     fetchInbox()
@@ -39,18 +57,41 @@ export default function ProviderDashboard() {
     return () => clearInterval(interval)
   }, [fetchInbox])
 
-  const handleRespond = async (item: InboxItem, action: "accept" | "reject") => {
-    if (!apiKey || !did) return
+  const handleRespond = async (item: InboxItem, action: "accept" | "reject" | "counter") => {
+    if (!providerDid) return
+    const isSessionItem = (item.negotiation as typeof item.negotiation & { source?: string }).source === "session"
+    if (isSessionItem && !protocolSessionId) {
+      setError("Open eerst een protocolsessie om op dit verzoek te reageren.")
+      return
+    }
+    if (!appApiKey) {
+      setError("API-sessie ontbreekt voor dit inbox-item.")
+      return
+    }
     setActingOn(item.negotiation.id)
 
     try {
-      const client = new ADPClient(apiKey)
-      await client.respondToInbox(did, {
+      setError("")
+      const client = new ADPClient(appApiKey || undefined)
+      const counterPrice = action === "counter" ? promptCounterPrice(item.negotiation.currentPrice || 0) : null
+      if (action === "counter" && counterPrice === null) {
+        return
+      }
+      await client.respondToInbox(providerDid, {
         negotiationId: item.negotiation.id,
+        session_id: isSessionItem ? protocolSessionId || undefined : undefined,
         action,
-        proposal: action === "accept" ? {
-          message: "Ik neem deze klus aan!",
-        } : undefined,
+        proposal:
+          action === "accept"
+            ? {
+                message: "Ik neem deze klus aan!",
+              }
+            : action === "counter"
+              ? {
+                  price: counterPrice || item.negotiation.currentPrice,
+                  message: "Tegenvoorstel gestuurd",
+                }
+              : undefined,
       })
       await fetchInbox()
     } catch (err) {
@@ -86,6 +127,10 @@ export default function ProviderDashboard() {
           </span>
         </button>
       </motion.div>
+
+      <div className="mb-6">
+        <ProviderScopeCard appApiKey={appApiKey} redirectTo="/app/provider" />
+      </div>
 
       {/* Stats */}
       <motion.div
@@ -177,6 +222,13 @@ export default function ProviderDashboard() {
                       Interesse
                     </>
                   )}
+                </button>
+                <button
+                  onClick={() => handleRespond(item, "counter")}
+                  disabled={actingOn === item.negotiation.id}
+                  className="py-2.5 px-4 border border-blue-500/20 hover:border-blue-400/40 rounded-xl text-sm text-blue-300 hover:text-blue-200 transition-colors"
+                >
+                  Tegenvoorstel
                 </button>
                 <button
                   onClick={() => handleRespond(item, "reject")}

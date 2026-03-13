@@ -28,9 +28,13 @@ function getStepStatus(negotiation: Negotiation, stepKey: string) {
     return "failed"
   }
   // Proposal received → consumer needs to decide
-  if (status === "proposal_sent" || status === "counter_proposed") {
+  if (status === "proposal_sent") {
     if (stepIndex <= 1) return "done"
     if (stepIndex === 2) return "waiting" // consumer must act
+    return "pending"
+  }
+  if (status === "counter_proposed") {
+    if (stepIndex <= 2) return "done"
     return "pending"
   }
   // Still waiting for provider response

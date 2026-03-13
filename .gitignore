@@ -37,6 +37,7 @@ yarn-error.log*
 
 # vercel
 .vercel
+.data/
 
 # deploy script (contains secret deploy hook URL)
 deploy.sh

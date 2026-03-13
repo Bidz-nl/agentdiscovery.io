@@ -12,7 +12,10 @@ import type { Negotiation } from "../../../lib/adp-client"
 export default function OrderDetail() {
   const router = useRouter()
   const params = useParams()
-  const { apiKey, did } = useAgentStore()
+  const { agentIdentity, protocolSession, appSession } = useAgentStore()
+  const consumerDid = agentIdentity.did
+  const protocolSessionId = protocolSession.sessionId
+  const appApiKey = appSession.apiKey
   const negotiationId = Number(params.negotiationId)
 
   const [negotiation, setNegotiation] = useState<Negotiation | null>(null)
@@ -20,10 +23,20 @@ export default function OrderDetail() {
   const [isActing, setIsActing] = useState(false)
   const [error, setError] = useState("")
 
+  const promptCounterPrice = useCallback((currentPrice: number) => {
+    const input = window.prompt("Nieuw tegenvoorstel in euro", (currentPrice / 100).toFixed(2))
+    if (input === null) return null
+    const normalized = Number.parseFloat(input.replace(",", "."))
+    if (!Number.isFinite(normalized) || normalized <= 0) {
+      setError("Voer een geldig bedrag in voor het tegenvoorstel.")
+      return null
+    }
+    return Math.round(normalized * 100)
+  }, [])
+
   const fetchNegotiation = useCallback(async () => {
-    if (!apiKey) return
     try {
-      const client = new ADPClient(apiKey)
+      const client = new ADPClient(appApiKey || undefined)
       const response = await client.getNegotiation(negotiationId)
       setNegotiation(response.negotiation)
     } catch (err) {
@@ -31,7 +44,7 @@ export default function OrderDetail() {
     } finally {
       setIsLoading(false)
     }
-  }, [apiKey, negotiationId])
+  }, [appApiKey, negotiationId])
 
   useEffect(() => {
     fetchNegotiation()
@@ -42,35 +55,6 @@ export default function OrderDetail() {
       return () => clearInterval(interval)
     }
   }, [fetchNegotiation, negotiation?.status])
-
-  const handleAction = async (action: "accept" | "reject") => {
-    if (!apiKey || !negotiation || !did) return
-    setIsActing(true)
-    setError("")
-    try {
-      const client = new ADPClient(apiKey)
-      // Extract price from proposals or finalTerms
-      const n = negotiation as any
-      const price = n.finalTerms?.price
-        || (n.proposals?.length ? n.proposals[n.proposals.length - 1]?.terms?.price : 0)
-        || negotiation.currentPrice || 0
-      await client.negotiate({
-        negotiationId: negotiation.id,
-        agentDid: did,
-        action,
-        proposal: {
-          price,
-          currency: "EUR",
-        },
-        message: action === "accept" ? "Deal geaccepteerd" : "Afgewezen",
-      })
-      await fetchNegotiation()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Actie mislukt")
-    } finally {
-      setIsActing(false)
-    }
-  }
 
   if (isLoading) {
     return (
@@ -98,12 +82,59 @@ export default function OrderDetail() {
     ? neg.proposals[neg.proposals.length - 1]?.terms?.price
     : undefined
   const currentPrice = finalPrice || lastProposalPrice || negotiation.currentPrice || 0
+  const isSessionBackedNegotiation = (negotiation as Negotiation & { source?: string }).source === "session"
+  const isNativeSessionNegotiation = (negotiation as Negotiation & { source?: string }).source === "native"
+  const isSessionNegotiation = isSessionBackedNegotiation || isNativeSessionNegotiation
+  const isLegacyViewOnlyNegotiation = !isSessionNegotiation
 
-  const isWaitingForYou = ["proposal_sent", "counter_proposed"].includes(negotiation.status)
-  const isWaitingForProvider = ["pending", "initiated"].includes(negotiation.status)
+  const isWaitingForYou = negotiation.status === "proposal_sent"
+  const isWaitingForProvider = ["pending", "initiated", "counter_proposed"].includes(negotiation.status)
   const isActive = isWaitingForYou || isWaitingForProvider
   const isCompleted = negotiation.status === "completed" || negotiation.status === "accepted"
   const isFailed = negotiation.status === "rejected" || negotiation.status === "cancelled"
+
+  const handleAction = async (action: "accept" | "reject" | "counter", overridePrice?: number | null) => {
+    if (!negotiation || !consumerDid) return
+    if (isSessionNegotiation && !protocolSessionId) {
+      setError("Open eerst een protocolsessie om deze onderhandeling af te handelen.")
+      return
+    }
+    if (isLegacyViewOnlyNegotiation) {
+      setError("Deze legacy onderhandeling is hier alleen leesbaar. Actieve onderhandelingsacties vereisen nu een protocolsessie.")
+      return
+    }
+    setIsActing(true)
+    setError("")
+    try {
+      const client = new ADPClient(appApiKey || undefined)
+      const n = negotiation as any
+      const fallbackPrice = n.finalTerms?.price
+        || (n.proposals?.length ? n.proposals[n.proposals.length - 1]?.terms?.price : 0)
+        || negotiation.currentPrice || 0
+      const price = overridePrice ?? fallbackPrice
+      await client.negotiate({
+        negotiationId: negotiation.id,
+        session_id: isSessionNegotiation ? protocolSessionId || undefined : undefined,
+        agentDid: consumerDid,
+        action,
+        proposal: {
+          price,
+          currency: "EUR",
+        },
+        message:
+          action === "accept"
+            ? "Deal geaccepteerd"
+            : action === "counter"
+              ? "Tegenvoorstel gedaan"
+              : "Afgewezen",
+      })
+      await fetchNegotiation()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Actie mislukt")
+    } finally {
+      setIsActing(false)
+    }
+  }
 
   return (
     <div className="flex flex-col min-h-screen px-4 pt-12 pb-24">
@@ -159,7 +190,7 @@ export default function OrderDetail() {
             {negotiation.status === "pending" && "Wacht op aanbieder"}
             {negotiation.status === "initiated" && "Verstuurd"}
             {negotiation.status === "proposal_sent" && "Jouw keuze"}
-            {negotiation.status === "counter_proposed" && "Tegenvoorstel"}
+            {negotiation.status === "counter_proposed" && "Wacht op aanbieder"}
             {negotiation.status === "accepted" && "Geaccepteerd"}
             {negotiation.status === "completed" && "Afgerond"}
             {negotiation.status === "rejected" && "Afgewezen"}
@@ -187,35 +218,62 @@ export default function OrderDetail() {
           transition={{ delay: 0.2 }}
           className="space-y-3 mt-auto"
         >
-          <p className="text-sm text-amber-400/80 text-center mb-1">
-            De aanbieder heeft een offerte gestuurd. Wat wil je doen?
-          </p>
+          {isSessionBackedNegotiation ? (
+            <p className="text-sm text-amber-400/80 text-center mb-1">
+              De aanbieder heeft een offerte gestuurd. Wat wil je doen?
+            </p>
+          ) : (
+            <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 px-4 py-4 text-center">
+              <p className="text-sm text-blue-300 mb-2">
+                Deze legacy onderhandeling is hier alleen leesbaar.
+              </p>
+              <p className="text-xs text-blue-200/80 leading-relaxed">
+                Actieve onderhandelingsacties lopen nu via een protocolsessie. Daarom kun je deze legacy onderhandeling op deze pagina nog wel bekijken, maar niet meer accepteren, afwijzen of van een tegenvoorstel voorzien.
+              </p>
+            </div>
+          )}
 
           {error && <p className="text-red-400 text-sm text-center">{error}</p>}
 
-          <button
-            onClick={() => handleAction("accept")}
-            disabled={isActing}
-            className="w-full py-3.5 bg-green-600 hover:bg-green-500 disabled:bg-white/5 rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
-          >
-            {isActing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <>
-                <Check className="w-4 h-4" />
-                Accepteren — deal sluiten
-              </>
-            )}
-          </button>
+          {isSessionBackedNegotiation && (
+            <>
+              <button
+                onClick={() => handleAction("accept")}
+                disabled={isActing}
+                className="w-full py-3.5 bg-green-600 hover:bg-green-500 disabled:bg-white/5 rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                {isActing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Accepteren — deal sluiten
+                  </>
+                )}
+              </button>
 
-          <button
-            onClick={() => handleAction("reject")}
-            disabled={isActing}
-            className="w-full py-3 border border-white/10 hover:border-red-500/30 rounded-xl text-white/50 hover:text-red-400 font-medium transition-colors flex items-center justify-center gap-2"
-          >
-            <X className="w-4 h-4" />
-            Afwijzen
-          </button>
+              <button
+                onClick={() => handleAction("reject")}
+                disabled={isActing}
+                className="w-full py-3 border border-white/10 hover:border-red-500/30 rounded-xl text-white/50 hover:text-red-400 font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                <X className="w-4 h-4" />
+                Afwijzen
+              </button>
+              <button
+                onClick={() => {
+                  const counterPrice = promptCounterPrice(currentPrice)
+                  if (counterPrice === null) return
+                  void handleAction("counter", counterPrice)
+                }}
+                disabled={isActing}
+                className="w-full py-3 border border-blue-500/20 hover:border-blue-400/40 rounded-xl text-blue-300 hover:text-blue-200 font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                <MessageSquare className="w-4 h-4" />
+                Tegenvoorstel doen
+              </button>
+            </>
+          )}
         </motion.div>
       )}
 

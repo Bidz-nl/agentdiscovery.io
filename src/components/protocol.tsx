@@ -1,12 +1,12 @@
 const endpoints = [
-  { method: "POST", path: "/api/adp/v1/agents", desc: "Register a new agent with DID and authority boundaries" },
-  { method: "GET", path: "/api/adp/v1/agents/{did}", desc: "Look up any agent by their decentralized identifier" },
-  { method: "POST", path: "/api/adp/v1/capabilities", desc: "Advertise what an agent can offer (products, services)" },
-  { method: "POST", path: "/api/adp/v1/intents", desc: "Declare what an agent is looking for" },
-  { method: "POST", path: "/api/adp/v1/discover", desc: "Match intents against capabilities with relevance scoring" },
-  { method: "POST", path: "/api/adp/v1/services/match", desc: "Match service intents with keyword, geo, and budget scoring" },
-  { method: "POST", path: "/api/adp/v1/negotiate", desc: "Start negotiation, counter-propose, accept, or reject" },
-  { method: "GET", path: "/api/adp/v1/negotiations/{id}", desc: "Get negotiation status, history, and final terms" },
+  { method: "POST", path: "/api/adp/v2/agents/register", desc: "Register a new ADP v2 agent manifest" },
+  { method: "GET", path: "/api/adp/v2/agents", desc: "List registered ADP v2 agents" },
+  { method: "POST", path: "/api/adp/v2/handshake", desc: "Bootstrap an ADP session before discovery and negotiation" },
+  { method: "POST", path: "/api/adp/v2/discover", desc: "Discover matching providers inside an open session" },
+  { method: "POST", path: "/api/adp/v2/negotiate", desc: "Submit negotiation intent for a chosen provider" },
+  { method: "POST", path: "/api/adp/v2/transact", desc: "Create a transaction record for the service interaction" },
+  { method: "PATCH", path: "/api/adp/v2/transact/{transactionId}", desc: "Advance transaction state through its lifecycle" },
+  { method: "POST", path: "/api/adp/v2/reputation", desc: "Record a reputation signal after completion" },
 ]
 
 const coreFeatures = [
@@ -52,12 +52,12 @@ export function Protocol() {
           </div>
           <h2 className="text-3xl sm:text-5xl font-bold mb-4">
             Built for{" "}
-            <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+            <span className="bg-linear-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
               machine-to-machine
             </span>
           </h2>
           <p className="text-lg text-white/40 max-w-2xl mx-auto">
-            ADP v0.1 defines 8 RESTful endpoints that enable the full agent commerce lifecycle.
+            ADP v2 defines a handshake-first API surface for registration, discovery, negotiation, transactions, and reputation.
           </p>
         </div>
 
@@ -66,7 +66,7 @@ export function Protocol() {
           {coreFeatures.map((feature) => (
             <div
               key={feature.title}
-              className="p-5 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors"
+              className="p-5 rounded-xl bg-white/2 border border-white/5 hover:border-white/10 transition-colors"
             >
               <div className="text-2xl mb-3">{feature.icon}</div>
               <h3 className="text-base font-bold text-white mb-1">{feature.title}</h3>
@@ -82,7 +82,7 @@ export function Protocol() {
             {endpoints.map((endpoint, i) => (
               <div
                 key={i}
-                className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:border-white/10 transition-colors"
+                className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-4 bg-white/2 border border-white/5 rounded-xl hover:border-white/10 transition-colors"
               >
                 <div className="flex items-center gap-3 shrink-0">
                   <span className={`px-2.5 py-0.5 rounded text-xs font-bold font-mono ${

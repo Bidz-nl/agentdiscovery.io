@@ -27,6 +27,10 @@ export interface NegotiateSuccessResponse {
   session_id: string
   negotiate: NegotiatePayload
   provider: NegotiateProviderSummary
+  negotiation: {
+    id: number
+    status: string
+  }
 }
 
 export type NegotiateValidationResult =

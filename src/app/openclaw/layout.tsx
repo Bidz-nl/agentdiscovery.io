@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "ADP × OpenClaw",
     description: "Connect your OpenClaw agent to the ADP network for autonomous commerce.",
-    url: "https://agentdiscovery.io/openclaw",
+    url: "https://www.agentdiscovery.io/openclaw",
   },
 }
 

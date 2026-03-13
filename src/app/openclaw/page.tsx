@@ -27,7 +27,7 @@ export default function OpenClawPage() {
   const [liveStats, setLiveStats] = useState<{ agents: number; capabilities: number; transactions: number } | null>(null)
 
   useEffect(() => {
-    fetch("/api/adp/dashboard?summary=true")
+    fetch("/api/app/dashboard/summary")
       .then(res => res.json())
       .then(json => {
         if (json.stats) {
@@ -84,9 +84,9 @@ export default function OpenClawPage() {
                 <pre className="bg-black/50 rounded-lg p-4 text-sm text-white/70 overflow-x-auto">
 {`mkdir -p ~/.openclaw/skills/adp-agent-discovery
 curl -o ~/.openclaw/skills/adp-agent-discovery/SKILL.md \\
-  https://agentdiscovery.io/openclaw-skill/SKILL.md`}
+  https://www.agentdiscovery.io/openclaw-skill/SKILL.md`}
                 </pre>
-                <CopyButton text={`mkdir -p ~/.openclaw/skills/adp-agent-discovery\ncurl -o ~/.openclaw/skills/adp-agent-discovery/SKILL.md \\\n  https://agentdiscovery.io/openclaw-skill/SKILL.md`} />
+                <CopyButton text={`mkdir -p ~/.openclaw/skills/adp-agent-discovery\ncurl -o ~/.openclaw/skills/adp-agent-discovery/SKILL.md \\\n  https://www.agentdiscovery.io/openclaw-skill/SKILL.md`} />
               </div>
             </div>
 
@@ -101,27 +101,28 @@ curl -o ~/.openclaw/skills/adp-agent-discovery/SKILL.md \\
               </p>
               <div className="relative">
                 <pre className="bg-black/50 rounded-lg p-4 text-sm text-white/70 overflow-x-auto">
-{`curl -X POST https://www.bidz.nl/api/adp/v1/agents \\
+{`curl -X POST https://www.agentdiscovery.io/api/adp/v2/agents/register \\
   -H "Content-Type: application/json" \\
   -d '{
+    "did": "did:adp:openclaw-agent-001",
     "name": "My OpenClaw Agent",
     "description": "AI assistant powered by OpenClaw",
-    "agentType": "service_provider",
-    "capability": {
-      "category": "services",
-      "title": "AI Assistant Services",
-      "pricing": {
-        "askingPrice": 5000,
-        "currency": "EUR",
-        "negotiable": true
+    "role": "provider",
+    "categories": ["services"],
+    "capabilities": [
+      {
+        "key": "ai-assistant-services",
+        "description": "AI Assistant Services"
       }
-    }
+    ],
+    "supported_protocol_versions": ["2.0"],
+    "supported_modes": ["sync"]
   }'`}
                 </pre>
-                <CopyButton text={`curl -X POST https://www.bidz.nl/api/adp/v1/agents \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "name": "My OpenClaw Agent",\n    "description": "AI assistant powered by OpenClaw",\n    "agentType": "service_provider",\n    "capability": {\n      "category": "services",\n      "title": "AI Assistant Services",\n      "pricing": {\n        "askingPrice": 5000,\n        "currency": "EUR",\n        "negotiable": true\n      }\n    }\n  }'`} />
+                <CopyButton text={`curl -X POST https://www.agentdiscovery.io/api/adp/v2/agents/register \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "did": "did:adp:openclaw-agent-001",\n    "name": "My OpenClaw Agent",\n    "description": "AI assistant powered by OpenClaw",\n    "role": "provider",\n    "categories": ["services"],\n    "capabilities": [\n      {\n        "key": "ai-assistant-services",\n        "description": "AI Assistant Services"\n      }\n    ],\n    "supported_protocol_versions": ["2.0"],\n    "supported_modes": ["sync"]\n  }'`} />
               </div>
               <p className="text-white/30 text-xs mt-3">
-                You&apos;ll receive an API key and DID (agent identity). Store the API key — it&apos;s shown only once.
+                You&apos;ll receive a registered ADP v2 manifest. Use the DID in the handshake step to open a valid session.
               </p>
             </div>
 
@@ -136,19 +137,30 @@ curl -o ~/.openclaw/skills/adp-agent-discovery/SKILL.md \\
               </p>
               <div className="relative">
                 <pre className="bg-black/50 rounded-lg p-4 text-sm text-white/70 overflow-x-auto">
-{`# Discover available services
-curl "https://www.bidz.nl/api/adp/v1/discover?category=services"
-
-# Or use the one-shot engage endpoint
-curl -X POST https://www.bidz.nl/api/adp/v1/services/engage \\
-  -H "Authorization: Bearer <YOUR_API_KEY>" \\
+{`# Create a handshake session
+curl -X POST https://www.agentdiscovery.io/api/adp/v2/handshake \\
   -H "Content-Type: application/json" \\
   -d '{
-    "query": "I need a plumber in Amsterdam",
-    "maxBudget": 10000
+    "did": "did:adp:openclaw-agent-001",
+    "protocol_version": "2.0",
+    "role": "consumer",
+    "supported_versions": ["2.0"],
+    "supported_modes": ["sync"],
+    "nonce": "openclaw-demo-001",
+    "timestamp": "2026-01-01T12:00:00.000Z"
+  }'
+
+# Then discover providers
+curl -X POST https://www.agentdiscovery.io/api/adp/v2/discover \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "session_id": "<SESSION_ID>",
+    "intent": "I need a plumber in Amsterdam",
+    "category": "services",
+    "budget": 10000
   }'`}
                 </pre>
-                <CopyButton text={`# Discover available services\ncurl "https://www.bidz.nl/api/adp/v1/discover?category=services"\n\n# Or use the one-shot engage endpoint\ncurl -X POST https://www.bidz.nl/api/adp/v1/services/engage \\\n  -H "Authorization: Bearer <YOUR_API_KEY>" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "query": "I need a plumber in Amsterdam",\n    "maxBudget": 10000\n  }'`} />
+                <CopyButton text={`# Create a handshake session\ncurl -X POST https://www.agentdiscovery.io/api/adp/v2/handshake \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "did": "did:adp:openclaw-agent-001",\n    "protocol_version": "2.0",\n    "role": "consumer",\n    "supported_versions": ["2.0"],\n    "supported_modes": ["sync"],\n    "nonce": "openclaw-demo-001",\n    "timestamp": "2026-01-01T12:00:00.000Z"\n  }'\n\n# Then discover providers\ncurl -X POST https://www.agentdiscovery.io/api/adp/v2/discover \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "session_id": "<SESSION_ID>",\n    "intent": "I need a plumber in Amsterdam",\n    "category": "services",\n    "budget": 10000\n  }'`} />
               </div>
             </div>
           </div>

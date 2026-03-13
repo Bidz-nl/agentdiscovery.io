@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 
-import { saveAgentManifest } from '@/lib/adp-v2/agent-repository'
-import { validateAgentRegistration } from '@/lib/adp-v2/agent-schema'
+import { registerNativeAgent, toPublicAgent } from '@/lib/adp-v2/agent-registration-service'
+import { validateNativeAgentRegistration } from '@/lib/adp-v2/native-agent-schema'
 import { jsonAdpV2Error, jsonAdpV2Success } from '@/lib/adp-v2/response'
 
 export async function POST(request: NextRequest) {
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     return jsonAdpV2Error(400, 'INVALID_AGENT_REGISTRATION_REQUEST', 'Agent registration request body must be a JSON object')
   }
 
-  const validation = validateAgentRegistration(body)
+  const validation = validateNativeAgentRegistration(body)
 
   if (!validation.success) {
     return jsonAdpV2Error(
@@ -28,11 +28,12 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const agent = saveAgentManifest(validation.data)
+  const registration = registerNativeAgent(validation.data)
 
   return jsonAdpV2Success({
     ok: true,
     message: 'ADP v2 agent registered',
-    agent,
+    agent: toPublicAgent(registration.agent),
+    apiKey: registration.apiKey,
   })
 }

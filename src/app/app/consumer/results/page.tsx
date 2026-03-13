@@ -10,7 +10,9 @@ import ADPClient from "../../lib/adp-client"
 function ResultsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { apiKey, did, searchResults, postcode, lastSearch } = useAgentStore()
+  const { agentIdentity, protocolSession, searchResults, postcode, lastSearch } = useAgentStore()
+  const consumerDid = agentIdentity.did
+  const hasProtocolSession = Boolean(protocolSession.sessionId)
 
   const capabilityId = searchParams.get("capabilityId")
   const agentDid = searchParams.get("agentDid")
@@ -27,16 +29,28 @@ function ResultsContent() {
   const [orderDetails, setOrderDetails] = useState(lastSearch || "")
   const [orderQuantity, setOrderQuantity] = useState("1")
   const [orderNotes, setOrderNotes] = useState("")
+  const canEngage = Boolean(match && consumerDid && hasProtocolSession)
 
   const handleEngage = async () => {
-    if (!match || !apiKey || !did) return
+    if (!match || !consumerDid) return
+    if (!protocolSession.sessionId) {
+      setError("Een actieve protocolsessie is vereist voordat je een offerte kunt aanvragen.")
+      return
+    }
 
     setIsEngaging(true)
     setError("")
 
     try {
-      const client = new ADPClient(apiKey)
-      const keywords = lastSearch.toLowerCase().split(/\s+/).filter((w) => w.length > 2)
+      const provider = match.agent || match.provider || {}
+      const requestAgentDid = provider.did
+
+      if (!requestAgentDid) {
+        setError("Doelagent niet gevonden")
+        return
+      }
+
+      const client = new ADPClient()
 
       // Build order specification message
       const orderSpec = [
@@ -46,7 +60,8 @@ function ResultsContent() {
       ].filter(Boolean).join(" | ")
 
       const response = await client.engage({
-        agentDid: did!,
+        agentDid: requestAgentDid,
+        session_id: protocolSession.sessionId || undefined,
         query: orderSpec || lastSearch || match.capability?.title || 'service request',
         category: match.capability?.category || 'all',
         postcode: postcode || undefined,
@@ -305,6 +320,11 @@ function ResultsContent() {
         {error && (
           <p className="text-red-400 text-sm text-center mb-3">{error}</p>
         )}
+        {!hasProtocolSession && (
+          <p className="text-sm text-blue-300/80 text-center mb-3">
+            Offerte aanvragen werkt alleen met een actieve protocolsessie. Open eerst een protocolsessie om deze aanbieder te benaderen.
+          </p>
+        )}
         <button
           onClick={() => {
             if (!showOrderForm && !orderDetails.trim()) {
@@ -313,7 +333,7 @@ function ResultsContent() {
             }
             handleEngage()
           }}
-          disabled={isEngaging}
+          disabled={isEngaging || !canEngage}
           className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 disabled:bg-white/5 rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
         >
           {isEngaging ? (
@@ -334,7 +354,9 @@ function ResultsContent() {
           )}
         </button>
         <p className="text-xs text-white/20 text-center mt-2">
-          {!orderDetails.trim()
+          {!hasProtocolSession
+            ? "Engageren is bewust vergrendeld totdat er een actieve protocolsessie is"
+            : !orderDetails.trim()
             ? "Geef aan wat je precies wilt bestellen"
             : "Je agent vraagt een offerte aan — jij beslist daarna"
           }

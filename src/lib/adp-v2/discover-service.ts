@@ -1,4 +1,5 @@
-import { listAgentManifests } from '@/lib/adp-v2/agent-repository'
+import { listAgentRecords } from '@/lib/adp-v2/agent-record-repository'
+import { listOwnerServiceRecords } from '@/lib/owner-service-repository'
 import type {
   DiscoverCompletedResponse,
   DiscoverMatch,
@@ -6,20 +7,60 @@ import type {
 } from '@/lib/adp-v2/discover-types'
 
 export function findDiscoverMatches(discover: DiscoverPayload): DiscoverMatch[] {
-  return listAgentManifests()
+  const publishedServices = listOwnerServiceRecords()
+    .filter((service) => !service.archivedAt)
+    .filter((service) => Boolean(service.publishedCapabilityKey && service.latestPublishedSnapshot))
+
+  const publishedServicesByProvider = new Map<string, typeof publishedServices>()
+  publishedServices.forEach((service) => {
+    const existing = publishedServicesByProvider.get(service.ownerAgentDid) ?? []
+    existing.push(service)
+    publishedServicesByProvider.set(service.ownerAgentDid, existing)
+  })
+
+  return listAgentRecords()
     .filter((agent) => agent.role === 'provider')
-    .filter((agent) => agent.supported_protocol_versions.includes('2.0'))
-    .filter((agent) =>
+    .filter((agent) => agent.status === 'active')
+    .filter((agent) => agent.supportedProtocolVersions.includes('2.0'))
+    .map((agent) => {
+      const services = publishedServicesByProvider.get(agent.did) ?? []
+      const categories = Array.from(
+        new Set(services.map((service) => service.latestPublishedSnapshot?.category || service.category).filter(Boolean))
+      )
+      const capabilities = services
+        .map((service) => service.latestPublishedSnapshot?.capability)
+        .filter(
+          (capability): capability is {
+            key: string
+            description: string
+            input_schema?: Record<string, unknown>
+            output_schema?: Record<string, unknown>
+          } => Boolean(capability)
+        )
+
+      return {
+        agent,
+        categories,
+        capabilities,
+      }
+    })
+    .filter(({ capabilities }) => capabilities.length > 0)
+    .filter(({ categories }) =>
       discover.category
-        ? Array.isArray(agent.categories) && agent.categories.includes(discover.category)
+        ? categories.some((category) => category.toLowerCase() === discover.category?.toLowerCase())
         : true
     )
-    .map((agent) => ({
+    .filter(({ capabilities }) =>
+      discover.capability_key
+        ? capabilities.some((capability) => capability.key.toLowerCase() === discover.capability_key?.toLowerCase())
+        : true
+    )
+    .map(({ agent, categories, capabilities }) => ({
       did: agent.did,
       name: agent.name,
       role: agent.role,
-      categories: agent.categories,
-      capabilities: agent.capabilities,
+      categories,
+      capabilities,
     }))
 }
 

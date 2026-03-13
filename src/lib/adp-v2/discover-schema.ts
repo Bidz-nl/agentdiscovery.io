@@ -21,6 +21,16 @@ export function validateDiscoverRequest(input: Record<string, unknown>): Discove
     }
   }
 
+  if (input.capability_key !== undefined && typeof input.capability_key !== 'string') {
+    return {
+      success: false,
+      error: {
+        code: 'INVALID_DISCOVER_CAPABILITY_KEY',
+        message: 'capability_key must be a string when provided',
+      },
+    }
+  }
+
   if (input.location !== undefined && typeof input.location !== 'string') {
     return {
       success: false,
@@ -50,6 +60,10 @@ export function validateDiscoverRequest(input: Record<string, unknown>): Discove
 
   if (typeof input.category === 'string' && input.category.trim().length > 0) {
     discover.category = input.category.trim()
+  }
+
+  if (typeof input.capability_key === 'string' && input.capability_key.trim().length > 0) {
+    discover.capability_key = input.capability_key.trim()
   }
 
   if (typeof input.location === 'string' && input.location.trim().length > 0) {

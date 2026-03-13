@@ -16,7 +16,7 @@ export function LiveActivity() {
   const [visible, setVisible] = useState(0)
 
   useEffect(() => {
-    fetch("/api/adp/dashboard?summary=true")
+    fetch("/api/app/dashboard/summary")
       .then(res => res.json())
       .then(json => {
         if (!json.stats || !json.recentAgents) return

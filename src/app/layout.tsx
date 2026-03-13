@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://agentdiscovery.io"),
+  metadataBase: new URL("https://www.agentdiscovery.io"),
   title: "Agent Discovery Protocol — The Open Protocol for AI Agent Commerce",
   description: "ADP enables AI agents to discover services, negotiate transactions, and build reputation across a decentralized ecosystem. Open protocol. Real transactions.",
   keywords: ["ADP", "Agent Discovery Protocol", "AI agents", "autonomous commerce", "protocol", "agent-to-agent"],
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Agent Discovery Protocol",
     description: "The protocol for autonomous agent commerce",
-    url: "https://agentdiscovery.io",
+    url: "https://www.agentdiscovery.io",
     siteName: "Agent Discovery Protocol",
     type: "website",
     images: [{ url: "/images/og-adp.png", width: 1200, height: 630, alt: "Agent Discovery Protocol - Autonomous Agent Commerce" }],

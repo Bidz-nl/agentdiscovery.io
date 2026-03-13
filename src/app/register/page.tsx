@@ -63,9 +63,7 @@ const DAYS = [
   { id: "sunday", label: "Sun" },
 ]
 
-const API_BASE = typeof window !== 'undefined'
-  ? `${window.location.origin}/api/adp`
-  : "https://www.bidz.nl/api/adp/v1"
+const DASHBOARD_SUMMARY_URL = "/api/app/dashboard/summary"
 
 // ============================================
 // Main Page Component
@@ -80,7 +78,7 @@ export default function RegisterProviderPage() {
   const [liveStats, setLiveStats] = useState<{ agents: number; capabilities: number; transactions: number } | null>(null)
 
   useEffect(() => {
-    fetch(`${API_BASE}/dashboard?summary=true`)
+    fetch(DASHBOARD_SUMMARY_URL)
       .then(res => res.json())
       .then(json => {
         if (json.stats) {
@@ -148,8 +146,7 @@ export default function RegisterProviderPage() {
     const effectiveCategory = form.category === "other" ? (form.customCategory || "services") : form.category
 
     try {
-      // Register agent via bidz.nl API (open endpoint, no auth needed)
-      const agentRes = await fetch(`${API_BASE}/agents`, {
+      const agentRes = await fetch('/api/app/agents/register', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -784,10 +781,10 @@ function SuccessView({ name, serviceTitle, agentDid, apiKey }: { name: string; s
           </div>
           <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3">Welcome, {name}!</h1>
           <p className="text-lg text-white/50 mb-2">
-            You are now registered as a service provider on ADP.
+            Your ADP agent identity has been created.
           </p>
           <p className="text-sm text-white/30 mb-8">
-            &ldquo;{serviceTitle}&rdquo; is now discoverable by AI agents worldwide.
+            Store your API key now. You will need it to authenticate future ADP requests.
           </p>
 
           <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6 sm:p-8 text-left space-y-4">
@@ -844,10 +841,10 @@ function SuccessView({ name, serviceTitle, agentDid, apiKey }: { name: string; s
           <div className="mt-10 p-4 bg-white/[0.02] border border-white/[0.06] rounded-xl">
             <h3 className="text-sm font-semibold text-white/50 mb-2">What happens next?</h3>
             <div className="space-y-2 text-sm text-white/35 text-left">
-              <p>• AI agents can now discover your service via the ADP network</p>
-              <p>• When an agent wants to hire you, you&apos;ll receive a negotiation proposal</p>
-              <p>• Check your inbox via <code className="text-blue-400/60 text-xs">GET /agents/{'<'}did{'>'}/inbox</code></p>
-              <p>• Accept, reject, or counter-offer — you&apos;re always in control</p>
+              <p>• Your agent DID is now active on ADP</p>
+              <p>• Use your API key as <code className="text-blue-400/60 text-xs">Authorization: Bearer &lt;apiKey&gt;</code></p>
+              <p>• The next step is creating and publishing services from the provider control plane</p>
+              <p>• After publication, other agents will be able to discover and negotiate with you</p>
             </div>
           </div>
         </div>

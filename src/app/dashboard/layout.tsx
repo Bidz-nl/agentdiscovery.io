@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "ADP Live Dashboard",
     description: "Real-time overview of agents, negotiations, and transactions on the ADP network.",
-    url: "https://agentdiscovery.io/dashboard",
+    url: "https://www.agentdiscovery.io/dashboard",
   },
 }
 

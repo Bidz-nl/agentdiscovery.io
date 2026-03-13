@@ -1,11 +1,22 @@
-import { getAgentManifest } from '@/lib/adp-v2/agent-repository'
-import type { AgentManifest } from '@/lib/adp-v2/agent-types'
+import { getAgentRecordByDid } from '@/lib/adp-v2/agent-record-repository'
 import type { NegotiatePayload } from '@/lib/adp-v2/negotiate-types'
+import { listOwnerServiceRecords } from '@/lib/owner-service-repository'
 
 export type NegotiateProviderValidationResult =
   | {
       success: true
-      provider: Pick<AgentManifest, 'did' | 'name' | 'role' | 'categories' | 'capabilities'>
+      provider: {
+        did: string
+        name: string
+        role: 'provider'
+        categories?: string[]
+        capabilities: Array<{
+          key: string
+          description: string
+          input_schema?: Record<string, unknown>
+          output_schema?: Record<string, unknown>
+        }>
+      }
     }
   | {
       success: false
@@ -20,7 +31,11 @@ export type NegotiateProviderValidationResult =
 export function validateNegotiateProvider(
   negotiate: NegotiatePayload
 ): NegotiateProviderValidationResult {
-  const provider = getAgentManifest(negotiate.provider_did)
+  const provider = getAgentRecordByDid(negotiate.provider_did)
+  const publishedServices = listOwnerServiceRecords()
+    .filter((service) => !service.archivedAt)
+    .filter((service) => service.ownerAgentDid === negotiate.provider_did)
+    .filter((service) => Boolean(service.publishedCapabilityKey && service.latestPublishedSnapshot))
 
   if (!provider) {
     return {
@@ -51,7 +66,7 @@ export function validateNegotiateProvider(
     }
   }
 
-  if (!provider.supported_protocol_versions.includes('2.0')) {
+  if (!provider.supportedProtocolVersions.includes('2.0')) {
     return {
       success: false,
       error: {
@@ -60,16 +75,18 @@ export function validateNegotiateProvider(
         message: 'Negotiation provider does not support ADP protocol version 2.0',
         details: {
           provider_did: negotiate.provider_did,
-          supported_protocol_versions: provider.supported_protocol_versions,
+          supported_protocol_versions: provider.supportedProtocolVersions,
         },
       },
     }
   }
 
-  if (
-    negotiate.service_category &&
-    (!Array.isArray(provider.categories) || !provider.categories.includes(negotiate.service_category))
-  ) {
+  const matchingServices = publishedServices.filter((service) => {
+    const category = service.latestPublishedSnapshot?.category || service.category
+    return category.toLowerCase() === negotiate.service_category.toLowerCase()
+  })
+
+  if (negotiate.service_category && matchingServices.length === 0) {
     return {
       success: false,
       error: {
@@ -79,7 +96,9 @@ export function validateNegotiateProvider(
         details: {
           provider_did: negotiate.provider_did,
           service_category: negotiate.service_category,
-          categories: provider.categories ?? [],
+          categories: Array.from(
+            new Set(publishedServices.map((service) => service.latestPublishedSnapshot?.category || service.category))
+          ),
         },
       },
     }
@@ -90,9 +109,20 @@ export function validateNegotiateProvider(
     provider: {
       did: provider.did,
       name: provider.name,
-      role: provider.role,
-      categories: provider.categories,
-      capabilities: provider.capabilities,
+      role: 'provider',
+      categories: Array.from(
+        new Set(publishedServices.map((service) => service.latestPublishedSnapshot?.category || service.category))
+      ),
+      capabilities: publishedServices
+        .map((service) => service.latestPublishedSnapshot?.capability)
+        .filter(
+          (capability): capability is {
+            key: string
+            description: string
+            input_schema?: Record<string, unknown>
+            output_schema?: Record<string, unknown>
+          } => Boolean(capability)
+        ),
     },
   }
 }

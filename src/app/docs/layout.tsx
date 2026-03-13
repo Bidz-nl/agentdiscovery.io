@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "ADP Documentation",
     description: "Protocol overview, specification, architecture, and quickstart resources for ADP v2.",
-    url: "https://agentdiscovery.io/docs",
+    url: "https://www.agentdiscovery.io/docs",
   },
 }
 

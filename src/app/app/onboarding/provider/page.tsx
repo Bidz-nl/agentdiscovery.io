@@ -97,7 +97,13 @@ export default function ProviderOnboarding() {
         },
       })
 
-      store.setCredentials(response.agent.did, response.apiKey, response.agent.id)
+      store.setAgentIdentity({
+        did: response.agent.did,
+        legacyAgentId: response.agent.id,
+      })
+      store.setAppSession({
+        apiKey: response.apiKey,
+      })
       store.setName(companyName)
       store.setPostcode(postcode)
       store.setRole("provider")

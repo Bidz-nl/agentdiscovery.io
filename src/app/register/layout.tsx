@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Register on ADP",
     description: "Register your service and get discovered by AI agents. €0.25 per match, no subscriptions.",
-    url: "https://agentdiscovery.io/register",
+    url: "https://www.agentdiscovery.io/register",
   },
 }
 

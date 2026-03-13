@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import { getAgentManifest } from '@/lib/adp-v2/agent-repository'
+import { getAgentRecordByDid } from '@/lib/adp-v2/agent-record-repository'
 import type { TransactionRecord, TransactionStatus, TransactPayload } from '@/lib/adp-v2/transact-types'
 
 const transactions = new Map<string, TransactionRecord>()
@@ -28,7 +28,7 @@ function createTransactionId(): string {
 }
 
 export function createTransaction(sessionId: string, transact: TransactPayload): CreateTransactionResult {
-  const provider = getAgentManifest(transact.provider_did)
+  const provider = getAgentRecordByDid(transact.provider_did)
 
   if (!provider) {
     return {
@@ -59,7 +59,7 @@ export function createTransaction(sessionId: string, transact: TransactPayload):
     }
   }
 
-  if (!provider.supported_protocol_versions.includes('2.0')) {
+  if (!provider.supportedProtocolVersions.includes('2.0')) {
     return {
       success: false,
       error: {
@@ -68,7 +68,7 @@ export function createTransaction(sessionId: string, transact: TransactPayload):
         message: 'Transaction provider does not support ADP protocol version 2.0',
         details: {
           provider_did: transact.provider_did,
-          supported_protocol_versions: provider.supported_protocol_versions,
+          supported_protocol_versions: provider.supportedProtocolVersions,
         },
       },
     }
