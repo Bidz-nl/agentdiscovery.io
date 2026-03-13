@@ -131,7 +131,11 @@ function isCachedLegacyNegotiation(negotiation: CachedLegacyNegotiation | null):
 }
 
 function readNegotiationDetailCacheStore(): NegotiationDetailCacheStoreFile {
-  ensureNegotiationDetailCacheStore()
+  if (!existsSync(NEGOTIATION_DETAIL_CACHE_FILE)) {
+    return {
+      negotiations: [],
+    }
+  }
 
   try {
     const raw = readFileSync(NEGOTIATION_DETAIL_CACHE_FILE, 'utf8')

@@ -110,7 +110,13 @@ function toOwnerAppSession(record: Partial<OwnerAppSession>): OwnerAppSession | 
 }
 
 function readOwnerPrivateAuthStore(): OwnerPrivateAuthStoreFile {
-  ensureOwnerPrivateAuthStore()
+  if (!existsSync(OWNER_PRIVATE_AUTH_STORE_FILE)) {
+    return {
+      principals: [],
+      memberships: [],
+      sessions: [],
+    }
+  }
 
   try {
     const raw = readFileSync(OWNER_PRIVATE_AUTH_STORE_FILE, 'utf8')

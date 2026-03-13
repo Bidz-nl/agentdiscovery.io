@@ -66,7 +66,9 @@ function isAgentCredentialRecord(value: AgentCredentialRecord | null): value is 
 }
 
 function readAgentCredentialStore(): AgentCredentialStoreFile {
-  ensureAgentCredentialStore()
+  if (!existsSync(AGENT_CREDENTIAL_STORE_FILE)) {
+    return { credentials: [] }
+  }
 
   try {
     const raw = readFileSync(AGENT_CREDENTIAL_STORE_FILE, 'utf8')

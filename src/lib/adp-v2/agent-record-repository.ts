@@ -85,7 +85,9 @@ function isAgentRecord(value: AgentRecord | null): value is AgentRecord {
 }
 
 function readAgentStore(): AgentStoreFile {
-  ensureAgentStore()
+  if (!existsSync(AGENT_STORE_FILE)) {
+    return { agents: [] }
+  }
 
   try {
     const raw = readFileSync(AGENT_STORE_FILE, 'utf8')

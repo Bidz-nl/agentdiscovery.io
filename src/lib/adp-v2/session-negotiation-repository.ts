@@ -135,10 +135,20 @@ function isSessionNegotiationRecord(record: SessionNegotiationRecord | null): re
 }
 
 function readSessionNegotiationStore(): SessionNegotiationStoreFile {
-  ensureSessionNegotiationStore()
+  const readableStoreFile = existsSync(SESSION_NEGOTIATION_STORE_FILE)
+    ? SESSION_NEGOTIATION_STORE_FILE
+    : existsSync(LEGACY_NEGOTIATION_STORE_FILE)
+      ? LEGACY_NEGOTIATION_STORE_FILE
+      : null
+
+  if (!readableStoreFile) {
+    return {
+      negotiations: [],
+    }
+  }
 
   try {
-    const raw = readFileSync(SESSION_NEGOTIATION_STORE_FILE, 'utf8')
+    const raw = readFileSync(readableStoreFile, 'utf8')
     const parsed = JSON.parse(raw) as Partial<SessionNegotiationStoreFile & { negotiations: PersistedSessionNegotiationRecord[] }>
     return {
       negotiations: Array.isArray(parsed.negotiations)

@@ -29,7 +29,11 @@ function ensureOwnerServiceStore(): void {
 }
 
 function readOwnerServiceStore(): OwnerServiceStoreFile {
-  ensureOwnerServiceStore()
+  if (!existsSync(OWNER_SERVICE_STORE_FILE)) {
+    return {
+      services: [],
+    }
+  }
 
   try {
     const raw = readFileSync(OWNER_SERVICE_STORE_FILE, 'utf8')

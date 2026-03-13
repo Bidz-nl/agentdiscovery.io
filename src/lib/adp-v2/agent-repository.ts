@@ -77,12 +77,18 @@ export function saveAgentManifest(manifest: AgentManifest): AgentManifest {
 }
 
 export function getAgentManifest(did: string): AgentManifest | null {
-  ensureAgentManifestStore()
+  if (!existsSync(AGENT_MANIFEST_STORE_DIRECTORY)) {
+    return null
+  }
+
   return readAgentManifestFile(getManifestStoreFilePath(did))
 }
 
 export function listAgentManifests(): AgentManifest[] {
-  ensureAgentManifestStore()
+  if (!existsSync(AGENT_MANIFEST_STORE_DIRECTORY)) {
+    return []
+  }
+
   return readdirSync(AGENT_MANIFEST_STORE_DIRECTORY)
     .filter((fileName) => fileName.endsWith('.json'))
     .map((fileName) => readAgentManifestFile(path.join(AGENT_MANIFEST_STORE_DIRECTORY, fileName)))

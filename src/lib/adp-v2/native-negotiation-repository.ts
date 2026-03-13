@@ -183,7 +183,12 @@ function isNativeNegotiationEvent(value: NativeNegotiationEvent | null): value i
 }
 
 function readNativeNegotiationStore(): NativeNegotiationStoreFile {
-  ensureNativeNegotiationStore()
+  if (!existsSync(NATIVE_NEGOTIATION_STORE_FILE)) {
+    return {
+      negotiations: [],
+      events: [],
+    }
+  }
 
   try {
     const raw = readFileSync(NATIVE_NEGOTIATION_STORE_FILE, 'utf8')
