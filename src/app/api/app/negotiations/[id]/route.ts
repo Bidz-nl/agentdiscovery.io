@@ -37,7 +37,7 @@ export async function GET(
     )
   }
 
-  const nativeNegotiation = getNativeNegotiationDetail(negotiationId)
+  const nativeNegotiation = await getNativeNegotiationDetail(negotiationId)
   if (nativeNegotiation) {
     if (nativeNegotiation.initiatorDid !== ownerSession.activeAgentDid && nativeNegotiation.responderDid !== ownerSession.activeAgentDid) {
       return NextResponse.json(
@@ -53,7 +53,7 @@ export async function GET(
     return NextResponse.json({ negotiation: nativeNegotiation })
   }
 
-  const sessionNegotiation = getSessionNegotiationRecord(negotiationId)
+  const sessionNegotiation = await getSessionNegotiationRecord(negotiationId)
   if (sessionNegotiation) {
     if (sessionNegotiation.initiatorDid !== ownerSession.activeAgentDid && sessionNegotiation.responderDid !== ownerSession.activeAgentDid) {
       return NextResponse.json(

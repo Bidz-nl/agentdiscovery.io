@@ -6,8 +6,8 @@ import { createDefaultAgentProfileForDid } from '@/lib/adp-v2/agent-profile-serv
 import { createAgentRecord } from '@/lib/adp-v2/agent-record-repository'
 import type { AgentRecord, NativeAgentRegistrationRequest } from '@/lib/adp-v2/agent-types'
 
-export function registerNativeAgent(input: NativeAgentRegistrationRequest) {
-  const agent = createAgentRecord({
+export async function registerNativeAgent(input: NativeAgentRegistrationRequest) {
+  const agent = await createAgentRecord({
     did: `did:adp:${randomUUID()}`,
     name: input.name,
     role: input.role,
@@ -21,7 +21,7 @@ export function registerNativeAgent(input: NativeAgentRegistrationRequest) {
   })
 
   const apiKey = mintRawAgentApiKey()
-  const credential = createAgentCredentialRecord({
+  const credential = await createAgentCredentialRecord({
     agentId: agent.id,
     label: 'default',
     kind: 'app_api_key',
@@ -35,7 +35,7 @@ export function registerNativeAgent(input: NativeAgentRegistrationRequest) {
     validatedAt: new Date().toISOString(),
   })
 
-  createDefaultAgentProfileForDid(agent.did)
+  await createDefaultAgentProfileForDid(agent.did)
 
   return {
     agent,

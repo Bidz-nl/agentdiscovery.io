@@ -1,7 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
-
-import { getDataRoot } from '@/lib/project-paths'
+import { kvRead, kvWrite } from '@/lib/kv-store'
 import type {
   CreateOwnerServiceRequest,
   OwnerServicePricingSummary,
@@ -11,48 +8,28 @@ import type {
   UpdateOwnerServiceRequest,
 } from '@/lib/owner-services'
 
-const OWNER_SERVICE_STORE_DIRECTORY = getDataRoot()
-const OWNER_SERVICE_STORE_FILE = path.join(OWNER_SERVICE_STORE_DIRECTORY, 'owner-services.json')
+const KV_KEY = 'adp:owner-services'
 
 type OwnerServiceStoreFile = {
   services: ServiceRecord[]
 }
 
-function ensureOwnerServiceStore(): void {
-  if (!existsSync(OWNER_SERVICE_STORE_DIRECTORY)) {
-    mkdirSync(OWNER_SERVICE_STORE_DIRECTORY, { recursive: true })
+async function readOwnerServiceStore(): Promise<OwnerServiceStoreFile> {
+  const raw = await kvRead<OwnerServiceStoreFile | null>(KV_KEY, null)
+  if (!raw) {
+    return { services: [] }
   }
-
-  if (!existsSync(OWNER_SERVICE_STORE_FILE)) {
-    writeFileSync(OWNER_SERVICE_STORE_FILE, JSON.stringify({ services: [] }, null, 2), 'utf8')
-  }
-}
-
-function readOwnerServiceStore(): OwnerServiceStoreFile {
-  if (!existsSync(OWNER_SERVICE_STORE_FILE)) {
-    return {
-      services: [],
-    }
-  }
-
   try {
-    const raw = readFileSync(OWNER_SERVICE_STORE_FILE, 'utf8')
-    const parsed = JSON.parse(raw) as Partial<OwnerServiceStoreFile>
     return {
-      services: Array.isArray(parsed.services) ? parsed.services.map(toServiceRecord) : [],
+      services: Array.isArray(raw.services) ? raw.services.map(toServiceRecord) : [],
     }
   } catch {
-    return {
-      services: [],
-    }
+    return { services: [] }
   }
 }
 
-function writeOwnerServiceStore(store: OwnerServiceStoreFile): void {
-  ensureOwnerServiceStore()
-  const temporaryFile = `${OWNER_SERVICE_STORE_FILE}.tmp`
-  writeFileSync(temporaryFile, JSON.stringify(store, null, 2), 'utf8')
-  renameSync(temporaryFile, OWNER_SERVICE_STORE_FILE)
+async function writeOwnerServiceStore(store: OwnerServiceStoreFile): Promise<void> {
+  await kvWrite(KV_KEY, store)
 }
 
 function toPublishedServiceSnapshot(snapshot: Partial<PublishedServiceSnapshot> | null | undefined): PublishedServiceSnapshot | null {
@@ -137,16 +114,16 @@ function normalizePricingSummary(input?: Partial<OwnerServicePricingSummary>): O
   }
 }
 
-export function listOwnerServiceRecords(): ServiceRecord[] {
-  return readOwnerServiceStore().services
+export async function listOwnerServiceRecords(): Promise<ServiceRecord[]> {
+  return (await readOwnerServiceStore()).services
 }
 
-export function getOwnerServiceRecord(serviceId: string): ServiceRecord | null {
-  return readOwnerServiceStore().services.find((record) => record.id === serviceId) ?? null
+export async function getOwnerServiceRecord(serviceId: string): Promise<ServiceRecord | null> {
+  return (await readOwnerServiceStore()).services.find((record) => record.id === serviceId) ?? null
 }
 
-export function createOwnerServiceRecord(ownerAgentDid: string, input: CreateOwnerServiceRequest): ServiceRecord {
-  const store = readOwnerServiceStore()
+export async function createOwnerServiceRecord(ownerAgentDid: string, input: CreateOwnerServiceRequest): Promise<ServiceRecord> {
+  const store = await readOwnerServiceStore()
   const now = new Date().toISOString()
   const record: ServiceRecord = {
     id: createOwnerServiceId(store.services),
@@ -167,15 +144,15 @@ export function createOwnerServiceRecord(ownerAgentDid: string, input: CreateOwn
     pricingSummary: normalizePricingSummary(input.pricingSummary),
   }
 
-  writeOwnerServiceStore({
+  await writeOwnerServiceStore({
     services: [...store.services, record],
   })
 
   return record
 }
 
-export function updateOwnerServiceRecord(serviceId: string, patch: UpdateOwnerServiceRequest): ServiceRecord | null {
-  const store = readOwnerServiceStore()
+export async function updateOwnerServiceRecord(serviceId: string, patch: UpdateOwnerServiceRequest): Promise<ServiceRecord | null> {
+  const store = await readOwnerServiceStore()
   const current = store.services.find((record) => record.id === serviceId)
   if (!current) {
     return null
@@ -222,15 +199,15 @@ export function updateOwnerServiceRecord(serviceId: string, patch: UpdateOwnerSe
     updatedAt: new Date().toISOString(),
   }
 
-  writeOwnerServiceStore({
+  await writeOwnerServiceStore({
     services: store.services.map((record) => (record.id === serviceId ? updated : record)),
   })
 
   return updated
 }
 
-export function archiveOwnerServiceRecord(serviceId: string): ServiceRecord | null {
-  const store = readOwnerServiceStore()
+export async function archiveOwnerServiceRecord(serviceId: string): Promise<ServiceRecord | null> {
+  const store = await readOwnerServiceStore()
   const current = store.services.find((record) => record.id === serviceId)
   if (!current) {
     return null
@@ -247,15 +224,15 @@ export function archiveOwnerServiceRecord(serviceId: string): ServiceRecord | nu
     updatedAt: now,
   }
 
-  writeOwnerServiceStore({
+  await writeOwnerServiceStore({
     services: store.services.map((record) => (record.id === serviceId ? updated : record)),
   })
 
   return updated
 }
 
-export function restoreOwnerServiceRecord(serviceId: string): ServiceRecord | null {
-  const store = readOwnerServiceStore()
+export async function restoreOwnerServiceRecord(serviceId: string): Promise<ServiceRecord | null> {
+  const store = await readOwnerServiceStore()
   const current = store.services.find((record) => record.id === serviceId)
   if (!current) {
     return null
@@ -271,33 +248,33 @@ export function restoreOwnerServiceRecord(serviceId: string): ServiceRecord | nu
     updatedAt: new Date().toISOString(),
   }
 
-  writeOwnerServiceStore({
+  await writeOwnerServiceStore({
     services: store.services.map((record) => (record.id === serviceId ? updated : record)),
   })
 
   return updated
 }
 
-export function deleteOwnerServiceRecord(serviceId: string): boolean {
-  const store = readOwnerServiceStore()
+export async function deleteOwnerServiceRecord(serviceId: string): Promise<boolean> {
+  const store = await readOwnerServiceStore()
   const nextServices = store.services.filter((record) => record.id !== serviceId)
 
   if (nextServices.length === store.services.length) {
     return false
   }
 
-  writeOwnerServiceStore({
+  await writeOwnerServiceStore({
     services: nextServices,
   })
 
   return true
 }
 
-export function updateOwnerServicePublicationMetadata(
+export async function updateOwnerServicePublicationMetadata(
   serviceId: string,
   metadata: OwnerServicePublicationMetadata
-): ServiceRecord | null {
-  const store = readOwnerServiceStore()
+): Promise<ServiceRecord | null> {
+  const store = await readOwnerServiceStore()
   const current = store.services.find((record) => record.id === serviceId)
   if (!current) {
     return null
@@ -317,7 +294,7 @@ export function updateOwnerServicePublicationMetadata(
         : toPublishedServiceSnapshot(metadata.latestPublishedSnapshot),
   }
 
-  writeOwnerServiceStore({
+  await writeOwnerServiceStore({
     services: store.services.map((record) => (record.id === serviceId ? updated : record)),
   })
 

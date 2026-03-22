@@ -1,12 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
-import os from 'node:os'
-import path from 'node:path'
 import test from 'node:test'
-
-const tempDataRoot = mkdtempSync(path.join(os.tmpdir(), 'local-food-tests-'))
-
-process.env.ADP_DATA_ROOT = tempDataRoot
 
 const { registerNativeAgent } = await import('../src/lib/adp-v2/agent-registration-service.ts')
 const { postcodeMatchesPrefixes } = await import('../src/lib/local-food/local-food-postcode.ts')
@@ -22,22 +15,13 @@ const {
   updateLocalFoodProviderByDid,
 } = await import('../src/lib/local-food/local-food-service.ts')
 
-function resetStores() {
-  rmSync(tempDataRoot, { recursive: true, force: true })
-  mkdirSync(tempDataRoot, { recursive: true })
-}
-
-test.beforeEach(() => {
-  resetStores()
-})
-
 test('postcode service-area matching uses normalized prefixes', () => {
   assert.equal(postcodeMatchesPrefixes('1012 AB', ['1012', '1055']), true)
   assert.equal(postcodeMatchesPrefixes('1055ZX', ['1012', '1055']), true)
   assert.equal(postcodeMatchesPrefixes('3011 AA', ['1012', '1055']), false)
 })
 
-test('menu CSV parsing and manual menu creation support a narrow structured catalog', () => {
+test('menu CSV parsing and manual menu creation support a narrow structured catalog', async () => {
   const parsed = parseLocalFoodMenuCsv([
     'name,category,description,price,available,tags',
     'Margherita,pizza,Tomato mozzarella basil,11.50,true,classics|vegetarian',
@@ -54,14 +38,14 @@ test('menu CSV parsing and manual menu creation support a narrow structured cata
     tags: ['classics', 'vegetarian'],
   })
 
-  const { agent } = registerNativeAgent({
+  const { agent } = await registerNativeAgent({
     name: 'Manual Menu Bot',
     role: 'provider',
     supported_protocol_versions: ['2.0'],
     description: 'Local pizza supplier',
   })
 
-  createLocalFoodManualMenuItem(agent.did, {
+  await createLocalFoodManualMenuItem(agent.did, {
     category: 'pizza',
     name: 'Pepperoni',
     description: 'Classic pepperoni pizza',
@@ -70,21 +54,21 @@ test('menu CSV parsing and manual menu creation support a narrow structured cata
     tags: ['classics'],
   })
 
-  const items = listLocalFoodMenuItemsByProvider(agent.did)
+  const items = await listLocalFoodMenuItemsByProvider(agent.did)
   assert.equal(items.length, 1)
   assert.equal(items[0]?.name, 'Pepperoni')
   assert.equal(items[0]?.priceCents, 1295)
 })
 
-test('direct order creation makes the order visible to the supplier', () => {
-  const { agent } = registerNativeAgent({
+test('direct order creation makes the order visible to the supplier', async () => {
+  const { agent } = await registerNativeAgent({
     name: 'Pizza Partner Bot',
     role: 'provider',
     supported_protocol_versions: ['2.0'],
     description: 'Direct pizza ordering partner',
   })
 
-  const menuItem = createLocalFoodManualMenuItem(agent.did, {
+  const menuItem = await createLocalFoodManualMenuItem(agent.did, {
     category: 'pizza',
     name: 'Quattro Formaggi',
     description: 'Four cheese pizza',
@@ -93,7 +77,7 @@ test('direct order creation makes the order visible to the supplier', () => {
     tags: ['vegetarian'],
   })
 
-  updateLocalFoodProviderByDid(agent.did, {
+  await updateLocalFoodProviderByDid(agent.did, {
     status: 'active',
     businessName: 'Demo Pizza West',
     summary: 'Local pizza delivery demo',
@@ -106,11 +90,11 @@ test('direct order creation makes the order visible to the supplier', () => {
     },
   })
 
-  const discoverableProviders = listLocalFoodDiscoverableProviders('1055AB')
+  const discoverableProviders = await listLocalFoodDiscoverableProviders('1055AB')
   assert.equal(discoverableProviders.length, 1)
   assert.equal(discoverableProviders[0]?.businessName, 'Demo Pizza West')
 
-  const order = createLocalFoodOrder({
+  const order = await createLocalFoodOrder({
     providerDid: agent.did,
     customerDid: 'did:adp:test-customer',
     customerName: 'Ron Demo',
@@ -126,21 +110,21 @@ test('direct order creation makes the order visible to the supplier', () => {
   assert.equal(order.totalCents, 2900)
   assert.equal(order.payment.status, 'pending')
 
-  const incomingOrders = listIncomingLocalFoodOrders(agent.did)
+  const incomingOrders = await listIncomingLocalFoodOrders(agent.did)
   assert.equal(incomingOrders.length, 1)
   assert.equal(incomingOrders[0]?.customerName, 'Ron Demo')
   assert.equal(incomingOrders[0]?.items[0]?.quantity, 2)
 })
 
-test('provider cannot go live before business basics, coverage, and menu are ready', () => {
-  const { agent } = registerNativeAgent({
+test('provider cannot go live before business basics, coverage, and menu are ready', async () => {
+  const { agent } = await registerNativeAgent({
     name: 'Not Ready Pizza Bot',
     role: 'provider',
     supported_protocol_versions: ['2.0'],
     description: 'Provider waiting for setup',
   })
 
-  assert.throws(
+  await assert.rejects(
     () =>
       updateLocalFoodProviderByDid(agent.did, {
         status: 'active',
@@ -154,23 +138,23 @@ test('provider cannot go live before business basics, coverage, and menu are rea
     /To go live, add supplier basics, postcode coverage, and at least one available menu item\./
   )
 
-  const checklist = getProviderLaunchChecklist(agent.did)
+  const checklist = await getProviderLaunchChecklist(agent.did)
   assert.equal(checklist.canGoLive, false)
   assert.equal(checklist.hasMenu, false)
 })
 
-test('demo bootstrap seeds a discoverable supplier with menu items', () => {
-  const { agent } = registerNativeAgent({
+test('demo bootstrap seeds a discoverable supplier with menu items', async () => {
+  const { agent } = await registerNativeAgent({
     name: 'Bootstrap Pizza Bot',
     role: 'provider',
     supported_protocol_versions: ['2.0'],
     description: 'Bootstrap provider',
   })
 
-  const provider = seedLocalFoodDemoForProvider(agent.did)
-  const checklist = getProviderLaunchChecklist(agent.did)
-  const menuItems = listLocalFoodMenuItemsByProvider(agent.did)
-  const discoverableProviders = listLocalFoodDiscoverableProviders('1055 AB')
+  const provider = await seedLocalFoodDemoForProvider(agent.did)
+  const checklist = await getProviderLaunchChecklist(agent.did)
+  const menuItems = await listLocalFoodMenuItemsByProvider(agent.did)
+  const discoverableProviders = await listLocalFoodDiscoverableProviders('1055 AB')
 
   assert.ok(provider)
   assert.equal(provider.status, 'active')

@@ -9,10 +9,10 @@ function createSessionId(): string {
   return `hs_${randomUUID().replace(/-/g, '')}`
 }
 
-export function createHandshakeSession(request: HandshakeRequest): {
+export async function createHandshakeSession(request: HandshakeRequest): Promise<{
   session: HandshakeSession
   response: HandshakeAckResponse
-} {
+}> {
   const createdAt = new Date()
   const expiresAt = new Date(createdAt.getTime() + HANDSHAKE_TTL_MS)
 
@@ -34,7 +34,7 @@ export function createHandshakeSession(request: HandshakeRequest): {
     expires_at: expiresAt.toISOString(),
   }
 
-  saveHandshakeSession(session)
+  await saveHandshakeSession(session)
 
   return {
     session,

@@ -1,32 +1,15 @@
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
 
-import { getDataRoot } from '@/lib/project-paths'
+import { kvRead, kvWrite } from '@/lib/kv-store'
 import type { OwnerAppSession, OwnerPrincipal, OwnerProviderMembership } from '@/lib/owner-private-auth'
 
-const OWNER_PRIVATE_AUTH_STORE_DIRECTORY = getDataRoot()
-const OWNER_PRIVATE_AUTH_STORE_FILE = path.join(OWNER_PRIVATE_AUTH_STORE_DIRECTORY, 'owner-private-auth.json')
+const KV_KEY = 'adp:owner-auth'
 const OWNER_APP_SESSION_TTL_MS = 12 * 60 * 60 * 1000
 
 type OwnerPrivateAuthStoreFile = {
   principals: OwnerPrincipal[]
   memberships: OwnerProviderMembership[]
   sessions: OwnerAppSession[]
-}
-
-function ensureOwnerPrivateAuthStore(): void {
-  if (!existsSync(OWNER_PRIVATE_AUTH_STORE_DIRECTORY)) {
-    mkdirSync(OWNER_PRIVATE_AUTH_STORE_DIRECTORY, { recursive: true })
-  }
-
-  if (!existsSync(OWNER_PRIVATE_AUTH_STORE_FILE)) {
-    writeFileSync(
-      OWNER_PRIVATE_AUTH_STORE_FILE,
-      JSON.stringify({ principals: [], memberships: [], sessions: [] }, null, 2),
-      'utf8'
-    )
-  }
 }
 
 function normalizeString(value: unknown): string {
@@ -110,46 +93,32 @@ function toOwnerAppSession(record: Partial<OwnerAppSession>): OwnerAppSession | 
   }
 }
 
-function readOwnerPrivateAuthStore(): OwnerPrivateAuthStoreFile {
-  if (!existsSync(OWNER_PRIVATE_AUTH_STORE_FILE)) {
-    return {
-      principals: [],
-      memberships: [],
-      sessions: [],
-    }
+async function readOwnerPrivateAuthStore(): Promise<OwnerPrivateAuthStoreFile> {
+  const raw = await kvRead<OwnerPrivateAuthStoreFile | null>(KV_KEY, null)
+  if (!raw) {
+    return { principals: [], memberships: [], sessions: [] }
   }
-
   try {
-    const raw = readFileSync(OWNER_PRIVATE_AUTH_STORE_FILE, 'utf8')
-    const parsed = JSON.parse(raw) as Partial<OwnerPrivateAuthStoreFile>
-
     return {
-      principals: Array.isArray(parsed.principals)
-        ? parsed.principals.map((record) => toOwnerPrincipal(record)).filter((record): record is OwnerPrincipal => Boolean(record))
+      principals: Array.isArray(raw.principals)
+        ? raw.principals.map((record) => toOwnerPrincipal(record)).filter((record): record is OwnerPrincipal => Boolean(record))
         : [],
-      memberships: Array.isArray(parsed.memberships)
-        ? parsed.memberships
+      memberships: Array.isArray(raw.memberships)
+        ? raw.memberships
             .map((record) => toOwnerProviderMembership(record))
             .filter((record): record is OwnerProviderMembership => Boolean(record))
         : [],
-      sessions: Array.isArray(parsed.sessions)
-        ? parsed.sessions.map((record) => toOwnerAppSession(record)).filter((record): record is OwnerAppSession => Boolean(record))
+      sessions: Array.isArray(raw.sessions)
+        ? raw.sessions.map((record) => toOwnerAppSession(record)).filter((record): record is OwnerAppSession => Boolean(record))
         : [],
     }
   } catch {
-    return {
-      principals: [],
-      memberships: [],
-      sessions: [],
-    }
+    return { principals: [], memberships: [], sessions: [] }
   }
 }
 
-function writeOwnerPrivateAuthStore(store: OwnerPrivateAuthStoreFile): void {
-  ensureOwnerPrivateAuthStore()
-  const temporaryFile = `${OWNER_PRIVATE_AUTH_STORE_FILE}.tmp`
-  writeFileSync(temporaryFile, JSON.stringify(store, null, 2), 'utf8')
-  renameSync(temporaryFile, OWNER_PRIVATE_AUTH_STORE_FILE)
+async function writeOwnerPrivateAuthStore(store: OwnerPrivateAuthStoreFile): Promise<void> {
+  await kvWrite(KV_KEY, store)
 }
 
 function createOwnerId(): string {
@@ -172,24 +141,24 @@ function isExpired(session: OwnerAppSession): boolean {
   return Date.parse(session.expiresAt) <= Date.now()
 }
 
-export function getOwnerPrincipalByExternalSubject(externalSubject: string): OwnerPrincipal | null {
+export async function getOwnerPrincipalByExternalSubject(externalSubject: string): Promise<OwnerPrincipal | null> {
   const normalizedSubject = normalizeString(externalSubject)
   if (!normalizedSubject) {
     return null
   }
 
-  return readOwnerPrivateAuthStore().principals.find((principal) => principal.externalSubject === normalizedSubject) ?? null
+  return (await readOwnerPrivateAuthStore()).principals.find((principal) => principal.externalSubject === normalizedSubject) ?? null
 }
 
-export function getOrCreateOwnerPrincipal(externalSubject: string): OwnerPrincipal {
+export async function getOrCreateOwnerPrincipal(externalSubject: string): Promise<OwnerPrincipal> {
   const normalizedSubject = normalizeString(externalSubject)
-  const existing = getOwnerPrincipalByExternalSubject(normalizedSubject)
+  const existing = await getOwnerPrincipalByExternalSubject(normalizedSubject)
 
   if (existing) {
     return existing
   }
 
-  const store = readOwnerPrivateAuthStore()
+  const store = await readOwnerPrivateAuthStore()
   const principal: OwnerPrincipal = {
     ownerId: createOwnerId(),
     externalSubject: normalizedSubject,
@@ -197,7 +166,7 @@ export function getOrCreateOwnerPrincipal(externalSubject: string): OwnerPrincip
     status: 'active',
   }
 
-  writeOwnerPrivateAuthStore({
+  await writeOwnerPrivateAuthStore({
     ...store,
     principals: [...store.principals, principal],
   })
@@ -205,16 +174,16 @@ export function getOrCreateOwnerPrincipal(externalSubject: string): OwnerPrincip
   return principal
 }
 
-export function listOwnerProviderMemberships(ownerId: string): OwnerProviderMembership[] {
+export async function listOwnerProviderMemberships(ownerId: string): Promise<OwnerProviderMembership[]> {
   const normalizedOwnerId = normalizeString(ownerId)
   if (!normalizedOwnerId) {
     return []
   }
 
-  return readOwnerPrivateAuthStore().memberships.filter((membership) => membership.ownerId === normalizedOwnerId)
+  return (await readOwnerPrivateAuthStore()).memberships.filter((membership) => membership.ownerId === normalizedOwnerId)
 }
 
-export function createOwnerProviderMemberships(ownerId: string, providerDids: string[]): OwnerProviderMembership[] {
+export async function createOwnerProviderMemberships(ownerId: string, providerDids: string[]): Promise<OwnerProviderMembership[]> {
   const normalizedOwnerId = normalizeString(ownerId)
   const nextProviderDids = normalizeProviderDidList(providerDids)
 
@@ -222,7 +191,7 @@ export function createOwnerProviderMemberships(ownerId: string, providerDids: st
     return []
   }
 
-  const store = readOwnerPrivateAuthStore()
+  const store = await readOwnerPrivateAuthStore()
   const existingProviderDids = new Set(
     store.memberships.filter((membership) => membership.ownerId === normalizedOwnerId).map((membership) => membership.providerDid)
   )
@@ -242,7 +211,7 @@ export function createOwnerProviderMemberships(ownerId: string, providerDids: st
     return store.memberships.filter((membership) => membership.ownerId === normalizedOwnerId)
   }
 
-  writeOwnerPrivateAuthStore({
+  await writeOwnerPrivateAuthStore({
     ...store,
     memberships: [...store.memberships, ...created],
   })
@@ -250,14 +219,14 @@ export function createOwnerProviderMemberships(ownerId: string, providerDids: st
   return [...store.memberships.filter((membership) => membership.ownerId === normalizedOwnerId), ...created]
 }
 
-export function getOwnerAppSessionByCredentialFingerprint(credentialFingerprint: string): OwnerAppSession | null {
+export async function getOwnerAppSessionByCredentialFingerprint(credentialFingerprint: string): Promise<OwnerAppSession | null> {
   const normalizedFingerprint = normalizeString(credentialFingerprint)
   if (!normalizedFingerprint) {
     return null
   }
 
   const session =
-    readOwnerPrivateAuthStore().sessions.find((existingSession) => existingSession.credentialFingerprint === normalizedFingerprint) ?? null
+    (await readOwnerPrivateAuthStore()).sessions.find((existingSession) => existingSession.credentialFingerprint === normalizedFingerprint) ?? null
 
   if (!session) {
     return null
@@ -280,17 +249,17 @@ export function selectDeterministicActiveProviderDid(
   return normalizedAuthorizedProviderDids[0] ?? null
 }
 
-export function upsertOwnerAppSession(input: {
+export async function upsertOwnerAppSession(input: {
   ownerId: string
   credentialFingerprint: string
   authorizedProviderDids: string[]
   activeProviderDid: string | null
-}): OwnerAppSession {
+}): Promise<OwnerAppSession> {
   const normalizedOwnerId = normalizeString(input.ownerId)
   const normalizedFingerprint = normalizeString(input.credentialFingerprint)
   const authorizedProviderDids = normalizeProviderDidList(input.authorizedProviderDids)
 
-  const store = readOwnerPrivateAuthStore()
+  const store = await readOwnerPrivateAuthStore()
   const existing =
     store.sessions.find((session) => session.credentialFingerprint === normalizedFingerprint && session.ownerId === normalizedOwnerId) ?? null
 
@@ -304,7 +273,7 @@ export function upsertOwnerAppSession(input: {
     expiresAt: createExpiresAt(),
   }
 
-  writeOwnerPrivateAuthStore({
+  await writeOwnerPrivateAuthStore({
     ...store,
     sessions: existing
       ? store.sessions.map((current) => (current.sessionId === existing.sessionId ? session : current))
@@ -314,17 +283,17 @@ export function upsertOwnerAppSession(input: {
   return session
 }
 
-export function setOwnerAppSessionActiveProvider(
+export async function setOwnerAppSessionActiveProvider(
   sessionId: string,
   activeProviderDid: string
-): OwnerAppSession | null {
+): Promise<OwnerAppSession | null> {
   const normalizedSessionId = normalizeString(sessionId)
   const normalizedActiveProviderDid = normalizeString(activeProviderDid)
   if (!normalizedSessionId || !normalizedActiveProviderDid) {
     return null
   }
 
-  const store = readOwnerPrivateAuthStore()
+  const store = await readOwnerPrivateAuthStore()
   const existing = store.sessions.find((session) => session.sessionId === normalizedSessionId) ?? null
 
   if (!existing) {
@@ -347,7 +316,7 @@ export function setOwnerAppSessionActiveProvider(
     expiresAt: createExpiresAt(),
   }
 
-  writeOwnerPrivateAuthStore({
+  await writeOwnerPrivateAuthStore({
     ...store,
     sessions: store.sessions.map((session) => (session.sessionId === normalizedSessionId ? updated : session)),
   })

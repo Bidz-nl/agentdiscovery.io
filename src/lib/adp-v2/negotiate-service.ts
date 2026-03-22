@@ -28,11 +28,15 @@ export type NegotiateProviderValidationResult =
       }
     }
 
-export function validateNegotiateProvider(
+export async function validateNegotiateProvider(
   negotiate: NegotiatePayload
-): NegotiateProviderValidationResult {
-  const provider = getAgentRecordByDid(negotiate.provider_did)
-  const publishedServices = listOwnerServiceRecords()
+): Promise<NegotiateProviderValidationResult> {
+  const [provider, allServices] = await Promise.all([
+    getAgentRecordByDid(negotiate.provider_did),
+    listOwnerServiceRecords(),
+  ])
+
+  const publishedServices = allServices
     .filter((service) => !service.archivedAt)
     .filter((service) => service.ownerAgentDid === negotiate.provider_did)
     .filter((service) => Boolean(service.publishedCapabilityKey && service.latestPublishedSnapshot))

@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { response } = createHandshakeSession(validation.data)
+  const { response } = await createHandshakeSession(validation.data)
 
   return jsonAdpV2Success(response, 201)
 }

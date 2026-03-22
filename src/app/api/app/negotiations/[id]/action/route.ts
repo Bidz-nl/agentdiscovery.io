@@ -50,7 +50,7 @@ export async function POST(
   }
 
   const payload = body as Record<string, unknown>
-  const negotiation = getNativeNegotiationDetail(negotiationId)
+  const negotiation = await getNativeNegotiationDetail(negotiationId)
 
   if (!negotiation) {
     return NextResponse.json(
@@ -76,7 +76,7 @@ export async function POST(
     )
   }
 
-  const sessionCheck = requireHandshakeSession(payload.session_id)
+  const sessionCheck = await requireHandshakeSession(payload.session_id)
   if (!sessionCheck.ok) {
     return NextResponse.json(sessionCheck.error.body, { status: sessionCheck.error.status })
   }
@@ -119,7 +119,7 @@ export async function POST(
     )
   }
 
-  const result = applyNativeNegotiationAction(negotiationId, actorDid, action, 'initiator', payload)
+  const result = await applyNativeNegotiationAction(negotiationId, actorDid, action, 'initiator', payload)
 
   if (!result.ok) {
     return NextResponse.json(result.error.body, { status: result.error.status })

@@ -43,8 +43,8 @@ function upsertManifestCapability(manifest: AgentManifest, category: string, cap
   }
 }
 
-function getOrCreateProviderManifest(ownerAgentDid: string, category: string): AgentManifest {
-  const existing = getAgentManifest(ownerAgentDid)
+async function getOrCreateProviderManifest(ownerAgentDid: string, category: string): Promise<AgentManifest> {
+  const existing = await getAgentManifest(ownerAgentDid)
   if (existing) {
     return existing
   }
@@ -132,11 +132,11 @@ export async function POST(
     category: service.category,
     capability,
   }
-  const manifest = getOrCreateProviderManifest(service.ownerAgentDid, service.category)
+  const manifest = await getOrCreateProviderManifest(service.ownerAgentDid, service.category)
   const updatedManifest = upsertManifestCapability(manifest, service.category, capability)
 
-  saveAgentManifest(updatedManifest)
-  upsertOwnerServicePublicationMetadata(service.id, {
+  await saveAgentManifest(updatedManifest)
+  await upsertOwnerServicePublicationMetadata(service.id, {
     publishedCapabilityKey: capabilityKey,
     projectionVersion: nextProjectionVersion,
     publishedAt,

@@ -39,7 +39,7 @@ export async function GET(
     return ownerScopeError()
   }
 
-  return NextResponse.json(getNativeProviderInboxReadModel(providerDid))
+  return NextResponse.json(await getNativeProviderInboxReadModel(providerDid))
 }
 
 export async function POST(
@@ -123,7 +123,7 @@ export async function POST(
     )
   }
 
-  const result = applyNativeNegotiationAction(negotiationId, providerDid, action, 'responder', payload)
+  const result = await applyNativeNegotiationAction(negotiationId, providerDid, action, 'responder', payload)
 
   if (!result.ok) {
     return NextResponse.json(result.error.body, { status: result.error.status })

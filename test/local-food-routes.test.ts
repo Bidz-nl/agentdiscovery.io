@@ -51,7 +51,7 @@ test('owner-private local food routes enforce owner auth', async () => {
 })
 
 test('supplier can receive and progress incoming local food orders through owner-private routes', async () => {
-  const registration = registerNativeAgent({
+  const registration = await registerNativeAgent({
     name: 'Route Pizza Bot',
     role: 'provider',
     supported_protocol_versions: ['2.0'],
@@ -165,7 +165,7 @@ test('supplier can receive and progress incoming local food orders through owner
 })
 
 test('demo bootstrap route seeds a live supplier menu for owner-private sessions', async () => {
-  const registration = registerNativeAgent({
+  const registration = await registerNativeAgent({
     name: 'Bootstrap Route Pizza Bot',
     role: 'provider',
     supported_protocol_versions: ['2.0'],

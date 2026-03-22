@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const adminReadModel = getLocalFoodProviderAdminReadModel(ownerSession.activeProviderDid)
+  const adminReadModel = await getLocalFoodProviderAdminReadModel(ownerSession.activeProviderDid)
   return NextResponse.json({ menuItems: adminReadModel.menuItems })
 }
 
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const created = importLocalFoodMenuCsv(ownerSession.activeProviderDid, body.csvText)
+      const created = await importLocalFoodMenuCsv(ownerSession.activeProviderDid, body.csvText)
       return NextResponse.json({ menuItems: created })
     } catch (error) {
       const serviceError = error instanceof LocalFoodServiceError ? error : null
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const created = createLocalFoodManualMenuItem(ownerSession.activeProviderDid, input)
+    const created = await createLocalFoodManualMenuItem(ownerSession.activeProviderDid, input)
     return NextResponse.json({ menuItem: created })
   } catch (error) {
     const serviceError = error instanceof LocalFoodServiceError ? error : null

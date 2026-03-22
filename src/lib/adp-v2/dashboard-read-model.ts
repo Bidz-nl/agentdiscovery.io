@@ -20,8 +20,8 @@ function toCapabilityTitle(key: string): string {
     .join(' ')
 }
 
-function toPublishedCapabilities() {
-  return listOwnerServiceRecords()
+async function toPublishedCapabilities() {
+  return (await listOwnerServiceRecords())
     .filter((service) => !service.archivedAt)
     .filter((service) => Boolean(service.publishedCapabilityKey && service.latestPublishedSnapshot))
     .map((service) => ({
@@ -46,8 +46,13 @@ function toPublishedCapabilities() {
     }))
 }
 
-function toNegotiations() {
-  const native = listNativeNegotiationRecords().map((negotiation) => {
+async function toNegotiations() {
+  const [nativeRecords, sessionRecords] = await Promise.all([
+    listNativeNegotiationRecords(),
+    listSessionNegotiationRecords(),
+  ])
+
+  const native = nativeRecords.map((negotiation) => {
     const lifecycle = getNegotiationLifecycle(negotiation)
 
     return {
@@ -80,7 +85,7 @@ function toNegotiations() {
     }
   })
 
-  const session = listSessionNegotiationRecords().map((negotiation) => {
+  const session = sessionRecords.map((negotiation) => {
     const lifecycle = getNegotiationLifecycle(negotiation)
 
     return {
@@ -120,10 +125,12 @@ function toNegotiations() {
   })
 }
 
-export function getDashboardAggregate(limit: number, offset: number) {
-  const agents = listAgentRecords()
-  const publishedCapabilities = toPublishedCapabilities()
-  const allNegotiations = toNegotiations()
+export async function getDashboardAggregate(limit: number, offset: number) {
+  const [agents, publishedCapabilities, allNegotiations] = await Promise.all([
+    listAgentRecords(),
+    toPublishedCapabilities(),
+    toNegotiations(),
+  ])
   const transactions = listTransactions()
   const completedTransactions = transactions.filter((transaction) => transaction.status === 'completed')
   const acceptedNegotiations = allNegotiations.filter((negotiation) => negotiation.isDeliveryOpen)
@@ -229,8 +236,8 @@ export function getDashboardAggregate(limit: number, offset: number) {
   }
 }
 
-export function getDashboardSummary() {
-  const dashboard = getDashboardAggregate(5, 0)
+export async function getDashboardSummary() {
+  const dashboard = await getDashboardAggregate(5, 0)
 
   return {
     stats: {

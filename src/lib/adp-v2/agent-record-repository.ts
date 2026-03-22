@@ -1,7 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
-
-import { getDataRoot } from '@/lib/project-paths'
+import { kvRead, kvWrite } from '@/lib/kv-store'
 import type {
   AgentRecord,
   AgentRole,
@@ -14,18 +11,7 @@ type AgentStoreFile = {
   agents: AgentRecord[]
 }
 
-const AGENT_STORE_DIRECTORY = getDataRoot()
-const AGENT_STORE_FILE = path.join(AGENT_STORE_DIRECTORY, 'adp-v2-agents.json')
-
-function ensureAgentStore() {
-  if (!existsSync(AGENT_STORE_DIRECTORY)) {
-    mkdirSync(AGENT_STORE_DIRECTORY, { recursive: true })
-  }
-
-  if (!existsSync(AGENT_STORE_FILE)) {
-    writeFileSync(AGENT_STORE_FILE, JSON.stringify({ agents: [] }, null, 2), 'utf8')
-  }
-}
+const KV_KEY = 'adp:agents'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -108,28 +94,22 @@ function isAgentRecord(value: AgentRecord | null): value is AgentRecord {
   return Boolean(value)
 }
 
-function readAgentStore(): AgentStoreFile {
-  if (!existsSync(AGENT_STORE_FILE)) {
+async function readAgentStore(): Promise<AgentStoreFile> {
+  const raw = await kvRead<AgentStoreFile | null>(KV_KEY, null)
+  if (!raw) {
     return { agents: [] }
   }
-
   try {
-    const raw = readFileSync(AGENT_STORE_FILE, 'utf8')
-    const parsed = JSON.parse(raw) as Partial<AgentStoreFile>
-
     return {
-      agents: Array.isArray(parsed.agents) ? parsed.agents.map(toAgentRecord).filter(isAgentRecord) : [],
+      agents: Array.isArray(raw.agents) ? raw.agents.map(toAgentRecord).filter(isAgentRecord) : [],
     }
   } catch {
     return { agents: [] }
   }
 }
 
-function writeAgentStore(store: AgentStoreFile) {
-  ensureAgentStore()
-  const temporaryFile = `${AGENT_STORE_FILE}.tmp`
-  writeFileSync(temporaryFile, JSON.stringify(store, null, 2), 'utf8')
-  renameSync(temporaryFile, AGENT_STORE_FILE)
+async function writeAgentStore(store: AgentStoreFile): Promise<void> {
+  await kvWrite(KV_KEY, store)
 }
 
 function getNextAgentId(records: AgentRecord[]) {
@@ -137,10 +117,10 @@ function getNextAgentId(records: AgentRecord[]) {
   return maxId + 1
 }
 
-export function createAgentRecord(
+export async function createAgentRecord(
   input: Omit<AgentRecord, 'id' | 'createdAt' | 'updatedAt'>
-): AgentRecord {
-  const store = readAgentStore()
+): Promise<AgentRecord> {
+  const store = await readAgentStore()
   const timestamp = new Date().toISOString()
   const record: AgentRecord = {
     id: getNextAgentId(store.agents),
@@ -149,34 +129,34 @@ export function createAgentRecord(
     updatedAt: timestamp,
   }
 
-  writeAgentStore({
+  await writeAgentStore({
     agents: [...store.agents, record],
   })
 
   return record
 }
 
-export function getAgentRecordById(id: number): AgentRecord | null {
-  return readAgentStore().agents.find((record) => record.id === id) ?? null
+export async function getAgentRecordById(id: number): Promise<AgentRecord | null> {
+  return (await readAgentStore()).agents.find((record) => record.id === id) ?? null
 }
 
-export function getAgentRecordByDid(did: string): AgentRecord | null {
-  return readAgentStore().agents.find((record) => record.did === did) ?? null
+export async function getAgentRecordByDid(did: string): Promise<AgentRecord | null> {
+  return (await readAgentStore()).agents.find((record) => record.did === did) ?? null
 }
 
-export function getAgentRecordByName(name: string): AgentRecord | null {
+export async function getAgentRecordByName(name: string): Promise<AgentRecord | null> {
   const normalizedName = name.trim().toLowerCase()
   if (!normalizedName) {
     return null
   }
 
   return (
-    readAgentStore().agents.find((record) => record.name.trim().toLowerCase() === normalizedName) ?? null
+    (await readAgentStore()).agents.find((record) => record.name.trim().toLowerCase() === normalizedName) ?? null
   )
 }
 
-export function updateAgentRecordName(did: string, name: string): AgentRecord | null {
-  const store = readAgentStore()
+export async function updateAgentRecordName(did: string, name: string): Promise<AgentRecord | null> {
+  const store = await readAgentStore()
   const current = store.agents.find((record) => record.did === did)
   if (!current) {
     return null
@@ -188,22 +168,22 @@ export function updateAgentRecordName(did: string, name: string): AgentRecord | 
     updatedAt: new Date().toISOString(),
   }
 
-  writeAgentStore({
+  await writeAgentStore({
     agents: store.agents.map((record) => (record.did === did ? updated : record)),
   })
 
   return updated
 }
 
-export function listAgentRecords(): AgentRecord[] {
-  return readAgentStore().agents
+export async function listAgentRecords(): Promise<AgentRecord[]> {
+  return (await readAgentStore()).agents
 }
 
-export function updateAgentRuntimeConfiguration(
+export async function updateAgentRuntimeConfiguration(
   did: string,
   input: Partial<Pick<AgentRecord, 'runtimeMode' | 'runtimeStatus' | 'preferredProvider'>>
-): AgentRecord | null {
-  const store = readAgentStore()
+): Promise<AgentRecord | null> {
+  const store = await readAgentStore()
   const current = store.agents.find((record) => record.did === did)
 
   if (!current) {
@@ -218,7 +198,7 @@ export function updateAgentRuntimeConfiguration(
     updatedAt: new Date().toISOString(),
   }
 
-  writeAgentStore({
+  await writeAgentStore({
     agents: store.agents.map((record) => (record.did === did ? updated : record)),
   })
 

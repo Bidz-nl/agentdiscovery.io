@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const result = createNativeNegotiationFromAppEngagePayload(body as Record<string, unknown>)
+  const result = await createNativeNegotiationFromAppEngagePayload(body as Record<string, unknown>)
 
   if (!result.ok) {
     return NextResponse.json(result.error.body, { status: result.error.status })

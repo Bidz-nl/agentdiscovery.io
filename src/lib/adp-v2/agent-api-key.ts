@@ -23,7 +23,7 @@ export function extractBearerApiKey(headers: Headers) {
   return match?.[1]?.trim() || null
 }
 
-export function verifyBearerAgentApiKey(headers: Headers): { agent: AgentRecord; credential: AgentCredentialRecord } | null {
+export async function verifyBearerAgentApiKey(headers: Headers): Promise<{ agent: AgentRecord; credential: AgentCredentialRecord } | null> {
   const rawApiKey = extractBearerApiKey(headers)
 
   if (!rawApiKey) {
@@ -33,25 +33,25 @@ export function verifyBearerAgentApiKey(headers: Headers): { agent: AgentRecord;
   return verifyRawAgentApiKey(rawApiKey)
 }
 
-export function verifyRawAgentApiKey(rawApiKey: string): { agent: AgentRecord; credential: AgentCredentialRecord } | null {
+export async function verifyRawAgentApiKey(rawApiKey: string): Promise<{ agent: AgentRecord; credential: AgentCredentialRecord } | null> {
   const normalizedApiKey = rawApiKey.trim()
   if (!normalizedApiKey) {
     return null
   }
 
-  const credential = getAgentCredentialBySecretHash(hashAgentApiKey(normalizedApiKey))
+  const credential = await getAgentCredentialBySecretHash(hashAgentApiKey(normalizedApiKey))
 
   if (!credential || credential.status !== 'active') {
     return null
   }
 
-  const agent = getAgentRecordById(credential.agentId)
+  const agent = await getAgentRecordById(credential.agentId)
 
   if (!agent || agent.status !== 'active') {
     return null
   }
 
-  const touchedCredential = touchAgentCredentialLastUsed(credential.id) ?? credential
+  const touchedCredential = (await touchAgentCredentialLastUsed(credential.id)) ?? credential
 
   return {
     agent,

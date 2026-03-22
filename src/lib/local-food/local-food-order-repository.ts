@@ -1,8 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
 
-import { getDataRoot } from '@/lib/project-paths'
+import { kvRead, kvWrite } from '@/lib/kv-store'
 import type {
   LocalFoodOrderRecord,
   LocalFoodOrderStatus,
@@ -13,25 +11,10 @@ type LocalFoodOrderStore = {
   orders: LocalFoodOrderRecord[]
 }
 
-const STORE_DIRECTORY = getDataRoot()
-const STORE_FILE = path.join(STORE_DIRECTORY, 'local-food-orders.json')
-
-function ensureStore() {
-  if (!existsSync(STORE_DIRECTORY)) {
-    mkdirSync(STORE_DIRECTORY, { recursive: true })
-  }
-
-  if (!existsSync(STORE_FILE)) {
-    writeFileSync(STORE_FILE, JSON.stringify({ orders: [] }, null, 2), 'utf8')
-  }
-}
+const KV_KEY = 'localfood:orders'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((entry) => typeof entry === 'string')
 }
 
 function isStatus(value: unknown): value is LocalFoodOrderStatus {
@@ -76,18 +59,15 @@ function toOrderRecord(value: unknown): LocalFoodOrderRecord | null {
   return value as unknown as LocalFoodOrderRecord
 }
 
-function readStore(): LocalFoodOrderStore {
-  if (!existsSync(STORE_FILE)) {
+async function readStore(): Promise<LocalFoodOrderStore> {
+  const raw = await kvRead<LocalFoodOrderStore | null>(KV_KEY, null)
+  if (!raw) {
     return { orders: [] }
   }
-
   try {
-    const raw = readFileSync(STORE_FILE, 'utf8')
-    const parsed = JSON.parse(raw) as Partial<LocalFoodOrderStore>
-
     return {
-      orders: Array.isArray(parsed.orders)
-        ? parsed.orders.map((entry) => toOrderRecord(entry)).filter((entry): entry is LocalFoodOrderRecord => Boolean(entry))
+      orders: Array.isArray(raw.orders)
+        ? raw.orders.map((entry) => toOrderRecord(entry)).filter((entry): entry is LocalFoodOrderRecord => Boolean(entry))
         : [],
     }
   } catch {
@@ -95,29 +75,26 @@ function readStore(): LocalFoodOrderStore {
   }
 }
 
-function writeStore(store: LocalFoodOrderStore) {
-  ensureStore()
-  const temporaryFile = `${STORE_FILE}.tmp`
-  writeFileSync(temporaryFile, JSON.stringify(store, null, 2), 'utf8')
-  renameSync(temporaryFile, STORE_FILE)
+async function writeStore(store: LocalFoodOrderStore): Promise<void> {
+  await kvWrite(KV_KEY, store)
 }
 
-export function listLocalFoodOrders() {
-  return readStore().orders
+export async function listLocalFoodOrders() {
+  return (await readStore()).orders
 }
 
-export function listLocalFoodOrdersByProvider(providerDid: string) {
-  return readStore().orders
+export async function listLocalFoodOrdersByProvider(providerDid: string) {
+  return (await readStore()).orders
     .filter((order) => order.providerDid === providerDid)
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
 }
 
-export function getLocalFoodOrder(orderId: string) {
-  return readStore().orders.find((order) => order.id === orderId) ?? null
+export async function getLocalFoodOrder(orderId: string) {
+  return (await readStore()).orders.find((order) => order.id === orderId) ?? null
 }
 
-export function createLocalFoodOrderRecord(input: Omit<LocalFoodOrderRecord, 'id' | 'createdAt' | 'updatedAt'>) {
-  const store = readStore()
+export async function createLocalFoodOrderRecord(input: Omit<LocalFoodOrderRecord, 'id' | 'createdAt' | 'updatedAt'>) {
+  const store = await readStore()
   const now = new Date().toISOString()
   const record: LocalFoodOrderRecord = {
     id: `lf_order_${randomUUID().replace(/-/g, '')}`,
@@ -126,18 +103,18 @@ export function createLocalFoodOrderRecord(input: Omit<LocalFoodOrderRecord, 'id
     ...input,
   }
 
-  writeStore({
+  await writeStore({
     orders: [...store.orders, record],
   })
 
   return record
 }
 
-export function updateLocalFoodOrderRecord(
+export async function updateLocalFoodOrderRecord(
   orderId: string,
   updater: (current: LocalFoodOrderRecord) => LocalFoodOrderRecord
 ) {
-  const store = readStore()
+  const store = await readStore()
   const current = store.orders.find((order) => order.id === orderId)
   if (!current) {
     return null
@@ -148,7 +125,7 @@ export function updateLocalFoodOrderRecord(
     updatedAt: new Date().toISOString(),
   }
 
-  writeStore({
+  await writeStore({
     orders: store.orders.map((order) => (order.id === orderId ? updated : order)),
   })
 

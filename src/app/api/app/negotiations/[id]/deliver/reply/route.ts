@@ -27,7 +27,7 @@ export async function POST(
     )
   }
 
-  const negotiation = getNativeNegotiationRecord(negotiationId)
+  const negotiation = await getNativeNegotiationRecord(negotiationId)
   if (!negotiation) {
     return NextResponse.json(
       { error: { code: 'NOT_FOUND', message: 'Negotiation not found' } },
@@ -72,7 +72,7 @@ export async function POST(
 
   const createdAt = new Date().toISOString()
 
-  const updated = updateNativeNegotiationRecord(negotiationId, (current) => ({
+  const updated = await updateNativeNegotiationRecord(negotiationId, (current) => ({
     ...current,
     status: transition.nextStatus,
     updatedAt: createdAt,

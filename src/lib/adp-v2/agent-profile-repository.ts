@@ -1,26 +1,13 @@
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
 
+import { kvRead, kvWrite } from '@/lib/kv-store'
 import type { AgentProfileRecord } from '@/lib/adp-v2/agent-profile-types'
-import { getDataRoot } from '@/lib/project-paths'
 
 type AgentProfileStoreFile = {
   profiles: AgentProfileRecord[]
 }
 
-const AGENT_PROFILE_STORE_DIRECTORY = getDataRoot()
-const AGENT_PROFILE_STORE_FILE = path.join(AGENT_PROFILE_STORE_DIRECTORY, 'adp-v2-agent-profiles.json')
-
-function ensureAgentProfileStore() {
-  if (!existsSync(AGENT_PROFILE_STORE_DIRECTORY)) {
-    mkdirSync(AGENT_PROFILE_STORE_DIRECTORY, { recursive: true })
-  }
-
-  if (!existsSync(AGENT_PROFILE_STORE_FILE)) {
-    writeFileSync(AGENT_PROFILE_STORE_FILE, JSON.stringify({ profiles: [] }, null, 2), 'utf8')
-  }
-}
+const KV_KEY = 'adp:agent-profiles'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -115,18 +102,15 @@ function toAgentProfileRecord(value: unknown): AgentProfileRecord | null {
   return value as unknown as AgentProfileRecord
 }
 
-function readAgentProfileStore(): AgentProfileStoreFile {
-  if (!existsSync(AGENT_PROFILE_STORE_FILE)) {
+async function readAgentProfileStore(): Promise<AgentProfileStoreFile> {
+  const raw = await kvRead<AgentProfileStoreFile | null>(KV_KEY, null)
+  if (!raw) {
     return { profiles: [] }
   }
-
   try {
-    const raw = readFileSync(AGENT_PROFILE_STORE_FILE, 'utf8')
-    const parsed = JSON.parse(raw) as Partial<AgentProfileStoreFile>
-
     return {
-      profiles: Array.isArray(parsed.profiles)
-        ? parsed.profiles
+      profiles: Array.isArray(raw.profiles)
+        ? raw.profiles
             .map((profile) => toAgentProfileRecord(profile))
             .filter((profile): profile is AgentProfileRecord => Boolean(profile))
         : [],
@@ -136,25 +120,22 @@ function readAgentProfileStore(): AgentProfileStoreFile {
   }
 }
 
-function writeAgentProfileStore(store: AgentProfileStoreFile) {
-  ensureAgentProfileStore()
-  const temporaryFile = `${AGENT_PROFILE_STORE_FILE}.tmp`
-  writeFileSync(temporaryFile, JSON.stringify(store, null, 2), 'utf8')
-  renameSync(temporaryFile, AGENT_PROFILE_STORE_FILE)
+async function writeAgentProfileStore(store: AgentProfileStoreFile): Promise<void> {
+  await kvWrite(KV_KEY, store)
 }
 
-export function listAgentProfileRecords(): AgentProfileRecord[] {
-  return readAgentProfileStore().profiles
+export async function listAgentProfileRecords(): Promise<AgentProfileRecord[]> {
+  return (await readAgentProfileStore()).profiles
 }
 
-export function getAgentProfileRecord(agentDid: string): AgentProfileRecord | null {
-  return readAgentProfileStore().profiles.find((profile) => profile.agentDid === agentDid) ?? null
+export async function getAgentProfileRecord(agentDid: string): Promise<AgentProfileRecord | null> {
+  return (await readAgentProfileStore()).profiles.find((profile) => profile.agentDid === agentDid) ?? null
 }
 
-export function createAgentProfileRecord(
+export async function createAgentProfileRecord(
   input: Omit<AgentProfileRecord, 'id' | 'version' | 'createdAt' | 'updatedAt'>
-): AgentProfileRecord {
-  const store = readAgentProfileStore()
+): Promise<AgentProfileRecord> {
+  const store = await readAgentProfileStore()
   const timestamp = new Date().toISOString()
   const record: AgentProfileRecord = {
     id: `profile_${randomUUID().replace(/-/g, '')}`,
@@ -164,18 +145,18 @@ export function createAgentProfileRecord(
     ...input,
   }
 
-  writeAgentProfileStore({
+  await writeAgentProfileStore({
     profiles: [...store.profiles, record],
   })
 
   return record
 }
 
-export function updateAgentProfileRecord(
+export async function updateAgentProfileRecord(
   agentDid: string,
   updater: (record: AgentProfileRecord) => AgentProfileRecord
-): AgentProfileRecord | null {
-  const store = readAgentProfileStore()
+): Promise<AgentProfileRecord | null> {
+  const store = await readAgentProfileStore()
   const existing = store.profiles.find((profile) => profile.agentDid === agentDid)
 
   if (!existing) {
@@ -188,7 +169,7 @@ export function updateAgentProfileRecord(
     updatedAt: new Date().toISOString(),
   }
 
-  writeAgentProfileStore({
+  await writeAgentProfileStore({
     profiles: store.profiles.map((profile) => (profile.agentDid === agentDid ? updated : profile)),
   })
 

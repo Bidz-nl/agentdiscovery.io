@@ -1,8 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
 
-import { getDataRoot } from '@/lib/project-paths'
+import { kvRead, kvWrite } from '@/lib/kv-store'
 
 export type NativeNegotiationRound = {
   round: number
@@ -62,22 +60,7 @@ type NativeNegotiationStoreFile = {
   events: NativeNegotiationEvent[]
 }
 
-const NATIVE_NEGOTIATION_STORE_DIRECTORY = getDataRoot()
-const NATIVE_NEGOTIATION_STORE_FILE = path.join(NATIVE_NEGOTIATION_STORE_DIRECTORY, 'adp-v2-negotiations.json')
-
-function ensureNativeNegotiationStore() {
-  if (!existsSync(NATIVE_NEGOTIATION_STORE_DIRECTORY)) {
-    mkdirSync(NATIVE_NEGOTIATION_STORE_DIRECTORY, { recursive: true })
-  }
-
-  if (!existsSync(NATIVE_NEGOTIATION_STORE_FILE)) {
-    writeFileSync(
-      NATIVE_NEGOTIATION_STORE_FILE,
-      JSON.stringify({ negotiations: [], events: [] }, null, 2),
-      'utf8'
-    )
-  }
-}
+const KV_KEY = 'adp:native-negotiations'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -321,39 +304,27 @@ function isNativeNegotiationEvent(value: NativeNegotiationEvent | null): value i
   return Boolean(value)
 }
 
-function readNativeNegotiationStore(): NativeNegotiationStoreFile {
-  if (!existsSync(NATIVE_NEGOTIATION_STORE_FILE)) {
-    return {
-      negotiations: [],
-      events: [],
-    }
+async function readNativeNegotiationStore(): Promise<NativeNegotiationStoreFile> {
+  const raw = await kvRead<NativeNegotiationStoreFile | null>(KV_KEY, null)
+  if (!raw) {
+    return { negotiations: [], events: [] }
   }
-
   try {
-    const raw = readFileSync(NATIVE_NEGOTIATION_STORE_FILE, 'utf8')
-    const parsed = JSON.parse(raw) as Partial<NativeNegotiationStoreFile>
-
     return {
-      negotiations: Array.isArray(parsed.negotiations)
-        ? parsed.negotiations.map(toNativeNegotiationRecord).filter(isNativeNegotiationRecord)
+      negotiations: Array.isArray(raw.negotiations)
+        ? raw.negotiations.map(toNativeNegotiationRecord).filter(isNativeNegotiationRecord)
         : [],
-      events: Array.isArray(parsed.events)
-        ? parsed.events.map(toNativeNegotiationEvent).filter(isNativeNegotiationEvent)
+      events: Array.isArray(raw.events)
+        ? raw.events.map(toNativeNegotiationEvent).filter(isNativeNegotiationEvent)
         : [],
     }
   } catch {
-    return {
-      negotiations: [],
-      events: [],
-    }
+    return { negotiations: [], events: [] }
   }
 }
 
-function writeNativeNegotiationStore(store: NativeNegotiationStoreFile) {
-  ensureNativeNegotiationStore()
-  const temporaryFile = `${NATIVE_NEGOTIATION_STORE_FILE}.tmp`
-  writeFileSync(temporaryFile, JSON.stringify(store, null, 2), 'utf8')
-  renameSync(temporaryFile, NATIVE_NEGOTIATION_STORE_FILE)
+async function writeNativeNegotiationStore(store: NativeNegotiationStoreFile): Promise<void> {
+  await kvWrite(KV_KEY, store)
 }
 
 function getNextNegotiationId(records: NativeNegotiationRecord[]) {
@@ -361,11 +332,11 @@ function getNextNegotiationId(records: NativeNegotiationRecord[]) {
   return maxId + 1
 }
 
-export function createNativeNegotiationRecord(
+export async function createNativeNegotiationRecord(
   input: Omit<NativeNegotiationRecord, 'id' | 'source'>,
   initialEvent?: Omit<NativeNegotiationEvent, 'id' | 'negotiationId'>
 ) {
-  const store = readNativeNegotiationStore()
+  const store = await readNativeNegotiationStore()
   const record = normalizeNativeNegotiationRecord({
     id: getNextNegotiationId(store.negotiations),
     source: 'native',
@@ -383,7 +354,7 @@ export function createNativeNegotiationRecord(
       ]
     : store.events
 
-  writeNativeNegotiationStore({
+  await writeNativeNegotiationStore({
     negotiations: [...store.negotiations, record],
     events,
   })
@@ -391,25 +362,25 @@ export function createNativeNegotiationRecord(
   return record
 }
 
-export function getNativeNegotiationRecord(id: number): NativeNegotiationRecord | null {
-  const record = readNativeNegotiationStore().negotiations.find((current) => current.id === id) ?? null
+export async function getNativeNegotiationRecord(id: number): Promise<NativeNegotiationRecord | null> {
+  const record = (await readNativeNegotiationStore()).negotiations.find((current) => current.id === id) ?? null
   return record ? normalizeNativeNegotiationRecord(record) : null
 }
 
-export function listNativeNegotiationRecords() {
-  return readNativeNegotiationStore().negotiations.map(normalizeNativeNegotiationRecord)
+export async function listNativeNegotiationRecords(): Promise<NativeNegotiationRecord[]> {
+  return (await readNativeNegotiationStore()).negotiations.map(normalizeNativeNegotiationRecord)
 }
 
-export function listNativeNegotiationEvents(negotiationId: number) {
-  return readNativeNegotiationStore().events.filter((event) => event.negotiationId === negotiationId)
+export async function listNativeNegotiationEvents(negotiationId: number): Promise<NativeNegotiationEvent[]> {
+  return (await readNativeNegotiationStore()).events.filter((event) => event.negotiationId === negotiationId)
 }
 
-export function updateNativeNegotiationRecord(
+export async function updateNativeNegotiationRecord(
   id: number,
   updater: (record: NativeNegotiationRecord) => NativeNegotiationRecord,
   nextEvent?: Omit<NativeNegotiationEvent, 'id' | 'negotiationId'>
 ) {
-  const store = readNativeNegotiationStore()
+  const store = await readNativeNegotiationStore()
   const existing = store.negotiations.find((record) => record.id === id)
 
   if (!existing) {
@@ -428,7 +399,7 @@ export function updateNativeNegotiationRecord(
       ]
     : store.events
 
-  writeNativeNegotiationStore({
+  await writeNativeNegotiationStore({
     negotiations: store.negotiations.map((record) => (record.id === id ? updated : record)),
     events,
   })

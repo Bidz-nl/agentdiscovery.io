@@ -34,12 +34,7 @@ function resolveProjectRootFrom(startPath: string) {
 }
 
 const PROJECT_ROOT = resolveProjectRootFrom(process.cwd())
-const DATA_ROOT = process.env.ADP_DATA_ROOT?.trim() || path.join(PROJECT_ROOT, '.data')
 
 export function getProjectRoot() {
   return PROJECT_ROOT
-}
-
-export function getDataRoot() {
-  return DATA_ROOT
 }

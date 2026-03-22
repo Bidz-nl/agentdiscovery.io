@@ -9,7 +9,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export async function GET(request: NextRequest) {
-  const verified = verifyBearerAgentApiKey(request.headers)
+  const verified = await verifyBearerAgentApiKey(request.headers)
 
   if (!verified) {
     return NextResponse.json(
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const verified = verifyBearerAgentApiKey(request.headers)
+  const verified = await verifyBearerAgentApiKey(request.headers)
 
   if (!verified) {
     return NextResponse.json(
@@ -93,7 +93,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const nextName = sanitizeAgentName(body.name)
-  const nameError = validateAgentNamePolicy(nextName, { excludeDid: verified.agent.did })
+  const nameError = await validateAgentNamePolicy(nextName, { excludeDid: verified.agent.did })
   if (nameError) {
     return NextResponse.json(
       {
@@ -103,7 +103,7 @@ export async function PATCH(request: NextRequest) {
     )
   }
 
-  const updatedAgent = updateAgentRecordName(verified.agent.did, nextName)
+  const updatedAgent = await updateAgentRecordName(verified.agent.did, nextName)
   if (!updatedAgent) {
     return NextResponse.json(
       {

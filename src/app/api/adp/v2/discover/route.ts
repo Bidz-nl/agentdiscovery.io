@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     return jsonAdpV2Error(400, 'MISSING_SESSION_ID', 'session_id is required and must be a non-empty string')
   }
 
-  const sessionCheck = requireHandshakeSession(payload.session_id)
+  const sessionCheck = await requireHandshakeSession(payload.session_id)
 
   if (!sessionCheck.ok) {
     return toHandshakeSessionErrorResponse(NextResponse, sessionCheck.error)
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     return jsonAdpV2Error(400, discoverValidation.error.code, discoverValidation.error.message)
   }
 
-  const response: DiscoverCompletedResponse = createDiscoverCompletedResponse(
+  const response: DiscoverCompletedResponse = await createDiscoverCompletedResponse(
     sessionCheck.session.session_id,
     discoverValidation.data
   )

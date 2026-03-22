@@ -1,7 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
-
-import { getDataRoot } from '@/lib/project-paths'
+import { kvRead, kvWrite } from '@/lib/kv-store'
 
 type NegotiationRound = {
   round: number
@@ -34,18 +31,7 @@ type NegotiationDetailCacheStoreFile = {
   negotiations: CachedLegacyNegotiation[]
 }
 
-const NEGOTIATION_DETAIL_CACHE_DIRECTORY = getDataRoot()
-const NEGOTIATION_DETAIL_CACHE_FILE = path.join(NEGOTIATION_DETAIL_CACHE_DIRECTORY, 'legacy-negotiation-details.json')
-
-function ensureNegotiationDetailCacheStore() {
-  if (!existsSync(NEGOTIATION_DETAIL_CACHE_DIRECTORY)) {
-    mkdirSync(NEGOTIATION_DETAIL_CACHE_DIRECTORY, { recursive: true })
-  }
-
-  if (!existsSync(NEGOTIATION_DETAIL_CACHE_FILE)) {
-    writeFileSync(NEGOTIATION_DETAIL_CACHE_FILE, JSON.stringify({ negotiations: [] }, null, 2), 'utf8')
-  }
-}
+const KV_KEY = 'adp:negotiation-cache'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -130,34 +116,24 @@ function isCachedLegacyNegotiation(negotiation: CachedLegacyNegotiation | null):
   return Boolean(negotiation)
 }
 
-function readNegotiationDetailCacheStore(): NegotiationDetailCacheStoreFile {
-  if (!existsSync(NEGOTIATION_DETAIL_CACHE_FILE)) {
-    return {
-      negotiations: [],
-    }
+async function readNegotiationDetailCacheStore(): Promise<NegotiationDetailCacheStoreFile> {
+  const raw = await kvRead<NegotiationDetailCacheStoreFile | null>(KV_KEY, null)
+  if (!raw) {
+    return { negotiations: [] }
   }
-
   try {
-    const raw = readFileSync(NEGOTIATION_DETAIL_CACHE_FILE, 'utf8')
-    const parsed = JSON.parse(raw) as Partial<NegotiationDetailCacheStoreFile>
-
     return {
-      negotiations: Array.isArray(parsed.negotiations)
-        ? parsed.negotiations.map(toCachedLegacyNegotiation).filter(isCachedLegacyNegotiation)
+      negotiations: Array.isArray(raw.negotiations)
+        ? raw.negotiations.map(toCachedLegacyNegotiation).filter(isCachedLegacyNegotiation)
         : [],
     }
   } catch {
-    return {
-      negotiations: [],
-    }
+    return { negotiations: [] }
   }
 }
 
-function writeNegotiationDetailCacheStore(store: NegotiationDetailCacheStoreFile) {
-  ensureNegotiationDetailCacheStore()
-  const temporaryFile = `${NEGOTIATION_DETAIL_CACHE_FILE}.tmp`
-  writeFileSync(temporaryFile, JSON.stringify(store, null, 2), 'utf8')
-  renameSync(temporaryFile, NEGOTIATION_DETAIL_CACHE_FILE)
+async function writeNegotiationDetailCacheStore(store: NegotiationDetailCacheStoreFile): Promise<void> {
+  await kvWrite(KV_KEY, store)
 }
 
 export function normalizeLegacyNegotiationDetailBody(value: unknown): CachedLegacyNegotiationDetail | null {
@@ -176,8 +152,8 @@ export function normalizeLegacyNegotiationDetailBody(value: unknown): CachedLega
   }
 }
 
-export function getCachedLegacyNegotiationDetail(negotiationId: number): CachedLegacyNegotiationDetail | null {
-  const cachedNegotiation = readNegotiationDetailCacheStore().negotiations.find(
+export async function getCachedLegacyNegotiationDetail(negotiationId: number): Promise<CachedLegacyNegotiationDetail | null> {
+  const cachedNegotiation = (await readNegotiationDetailCacheStore()).negotiations.find(
     (negotiation) => negotiation.id === negotiationId
   )
 
@@ -190,17 +166,17 @@ export function getCachedLegacyNegotiationDetail(negotiationId: number): CachedL
   }
 }
 
-export function cacheLegacyNegotiationDetail(detail: CachedLegacyNegotiationDetail): CachedLegacyNegotiationDetail {
-  const store = readNegotiationDetailCacheStore()
+export async function cacheLegacyNegotiationDetail(detail: CachedLegacyNegotiationDetail): Promise<CachedLegacyNegotiationDetail> {
+  const store = await readNegotiationDetailCacheStore()
   const nextNegotiation = detail.negotiation
   const existingIndex = store.negotiations.findIndex((negotiation) => negotiation.id === nextNegotiation.id)
 
   if (existingIndex === -1) {
-    writeNegotiationDetailCacheStore({
+    await writeNegotiationDetailCacheStore({
       negotiations: [...store.negotiations, nextNegotiation],
     })
   } else {
-    writeNegotiationDetailCacheStore({
+    await writeNegotiationDetailCacheStore({
       negotiations: store.negotiations.map((negotiation, index) =>
         index === existingIndex ? nextNegotiation : negotiation
       ),

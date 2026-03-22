@@ -1,26 +1,13 @@
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
 
-import { getDataRoot } from '@/lib/project-paths'
+import { kvRead, kvWrite } from '@/lib/kv-store'
 import type { AgentCredentialRecord } from '@/lib/adp-v2/agent-types'
 
 type AgentCredentialStoreFile = {
   credentials: AgentCredentialRecord[]
 }
 
-const AGENT_CREDENTIAL_STORE_DIRECTORY = getDataRoot()
-const AGENT_CREDENTIAL_STORE_FILE = path.join(AGENT_CREDENTIAL_STORE_DIRECTORY, 'adp-v2-agent-credentials.json')
-
-function ensureAgentCredentialStore() {
-  if (!existsSync(AGENT_CREDENTIAL_STORE_DIRECTORY)) {
-    mkdirSync(AGENT_CREDENTIAL_STORE_DIRECTORY, { recursive: true })
-  }
-
-  if (!existsSync(AGENT_CREDENTIAL_STORE_FILE)) {
-    writeFileSync(AGENT_CREDENTIAL_STORE_FILE, JSON.stringify({ credentials: [] }, null, 2), 'utf8')
-  }
-}
+const KV_KEY = 'adp:agent-credentials'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -82,18 +69,15 @@ function isAgentCredentialRecord(value: AgentCredentialRecord | null): value is 
   return Boolean(value)
 }
 
-function readAgentCredentialStore(): AgentCredentialStoreFile {
-  if (!existsSync(AGENT_CREDENTIAL_STORE_FILE)) {
+async function readAgentCredentialStore(): Promise<AgentCredentialStoreFile> {
+  const raw = await kvRead<AgentCredentialStoreFile | null>(KV_KEY, null)
+  if (!raw) {
     return { credentials: [] }
   }
-
   try {
-    const raw = readFileSync(AGENT_CREDENTIAL_STORE_FILE, 'utf8')
-    const parsed = JSON.parse(raw) as Partial<AgentCredentialStoreFile>
-
     return {
-      credentials: Array.isArray(parsed.credentials)
-        ? parsed.credentials.map(toAgentCredentialRecord).filter(isAgentCredentialRecord)
+      credentials: Array.isArray(raw.credentials)
+        ? raw.credentials.map(toAgentCredentialRecord).filter(isAgentCredentialRecord)
         : [],
     }
   } catch {
@@ -101,17 +85,14 @@ function readAgentCredentialStore(): AgentCredentialStoreFile {
   }
 }
 
-function writeAgentCredentialStore(store: AgentCredentialStoreFile) {
-  ensureAgentCredentialStore()
-  const temporaryFile = `${AGENT_CREDENTIAL_STORE_FILE}.tmp`
-  writeFileSync(temporaryFile, JSON.stringify(store, null, 2), 'utf8')
-  renameSync(temporaryFile, AGENT_CREDENTIAL_STORE_FILE)
+async function writeAgentCredentialStore(store: AgentCredentialStoreFile): Promise<void> {
+  await kvWrite(KV_KEY, store)
 }
 
-export function createAgentCredentialRecord(
+export async function createAgentCredentialRecord(
   input: Omit<AgentCredentialRecord, 'id' | 'createdAt' | 'lastUsedAt' | 'revokedAt'>
-): AgentCredentialRecord {
-  const store = readAgentCredentialStore()
+): Promise<AgentCredentialRecord> {
+  const store = await readAgentCredentialStore()
   const record: AgentCredentialRecord = {
     id: `cred_${randomUUID()}`,
     ...input,
@@ -120,19 +101,19 @@ export function createAgentCredentialRecord(
     revokedAt: null,
   }
 
-  writeAgentCredentialStore({
+  await writeAgentCredentialStore({
     credentials: [...store.credentials, record],
   })
 
   return record
 }
 
-export function getAgentCredentialBySecretHash(secretHash: string): AgentCredentialRecord | null {
-  return readAgentCredentialStore().credentials.find((record) => record.secretHash === secretHash && record.kind === 'app_api_key') ?? null
+export async function getAgentCredentialBySecretHash(secretHash: string): Promise<AgentCredentialRecord | null> {
+  return (await readAgentCredentialStore()).credentials.find((record) => record.secretHash === secretHash && record.kind === 'app_api_key') ?? null
 }
 
-export function touchAgentCredentialLastUsed(id: string): AgentCredentialRecord | null {
-  const store = readAgentCredentialStore()
+export async function touchAgentCredentialLastUsed(id: string): Promise<AgentCredentialRecord | null> {
+  const store = await readAgentCredentialStore()
   const existingRecord = store.credentials.find((record) => record.id === id)
 
   if (!existingRecord) {
@@ -144,27 +125,27 @@ export function touchAgentCredentialLastUsed(id: string): AgentCredentialRecord 
     lastUsedAt: new Date().toISOString(),
   }
 
-  writeAgentCredentialStore({
+  await writeAgentCredentialStore({
     credentials: store.credentials.map((record) => (record.id === id ? updatedRecord : record)),
   })
 
   return updatedRecord
 }
 
-export function getAgentCredentialById(id: string): AgentCredentialRecord | null {
-  return readAgentCredentialStore().credentials.find((record) => record.id === id) ?? null
+export async function getAgentCredentialById(id: string): Promise<AgentCredentialRecord | null> {
+  return (await readAgentCredentialStore()).credentials.find((record) => record.id === id) ?? null
 }
 
-export function listAgentCredentialRecords(agentId: number): AgentCredentialRecord[] {
-  return readAgentCredentialStore().credentials.filter((record) => record.agentId === agentId)
+export async function listAgentCredentialRecords(agentId: number): Promise<AgentCredentialRecord[]> {
+  return (await readAgentCredentialStore()).credentials.filter((record) => record.agentId === agentId)
 }
 
-export function getActiveAgentProviderCredential(
+export async function getActiveAgentProviderCredential(
   agentId: number,
   provider: 'openai' | 'anthropic'
-): AgentCredentialRecord | null {
+): Promise<AgentCredentialRecord | null> {
   return (
-    readAgentCredentialStore().credentials.find(
+    (await readAgentCredentialStore()).credentials.find(
       (record) =>
         record.agentId === agentId &&
         record.kind === 'provider_api_key' &&
@@ -174,11 +155,11 @@ export function getActiveAgentProviderCredential(
   )
 }
 
-export function updateAgentCredentialRecord(
+export async function updateAgentCredentialRecord(
   id: string,
   updater: (record: AgentCredentialRecord) => AgentCredentialRecord
-): AgentCredentialRecord | null {
-  const store = readAgentCredentialStore()
+): Promise<AgentCredentialRecord | null> {
+  const store = await readAgentCredentialStore()
   const existing = store.credentials.find((record) => record.id === id)
 
   if (!existing) {
@@ -187,17 +168,17 @@ export function updateAgentCredentialRecord(
 
   const updated = updater(existing)
 
-  writeAgentCredentialStore({
+  await writeAgentCredentialStore({
     credentials: store.credentials.map((record) => (record.id === id ? updated : record)),
   })
 
   return updated
 }
 
-export function setAgentCredentialValidation(
+export async function setAgentCredentialValidation(
   id: string,
   validationStatus: AgentCredentialRecord['validationStatus']
-): AgentCredentialRecord | null {
+): Promise<AgentCredentialRecord | null> {
   return updateAgentCredentialRecord(id, (record) => ({
     ...record,
     validationStatus,
@@ -205,7 +186,7 @@ export function setAgentCredentialValidation(
   }))
 }
 
-export function revokeAgentCredential(id: string): AgentCredentialRecord | null {
+export async function revokeAgentCredential(id: string): Promise<AgentCredentialRecord | null> {
   return updateAgentCredentialRecord(id, (record) => ({
     ...record,
     status: 'revoked',

@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const credential = getAgentCredentialBySecretHash(hashAgentApiKey(apiKey))
+  const credential = await getAgentCredentialBySecretHash(hashAgentApiKey(apiKey))
   if (!credential) {
     return NextResponse.json(
       {
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const verified = verifyRawAgentApiKey(apiKey)
+  const verified = await verifyRawAgentApiKey(apiKey)
   if (!verified) {
     return NextResponse.json(
       {
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const agent = getAgentRecordById(credential.agentId)
+  const agent = await getAgentRecordById(credential.agentId)
   if (!agent || agent.status !== 'active') {
     return NextResponse.json(
       {
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
   let providerContext: OwnerProviderContextResponse | null = null
 
   if (agent.role === 'provider') {
-    const ownerSession = resolveOwnerPrivateAuthContextFromApiKey(apiKey)
+    const ownerSession = await resolveOwnerPrivateAuthContextFromApiKey(apiKey)
     if (!ownerSession) {
       return NextResponse.json(
         {

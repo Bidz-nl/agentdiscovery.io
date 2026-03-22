@@ -2,9 +2,13 @@ import { getAgentManifest, saveAgentManifest } from '@/lib/adp-v2/agent-reposito
 import type { AgentCapability, AgentManifest } from '@/lib/adp-v2/agent-types'
 import { listOwnerServiceRecords } from '@/lib/owner-service-repository'
 
-export function rebuildProviderManifest(providerDid: string): AgentManifest {
-  const existingManifest = getAgentManifest(providerDid)
-  const publishedServices = listOwnerServiceRecords()
+export async function rebuildProviderManifest(providerDid: string): Promise<AgentManifest> {
+  const [existingManifest, allServices] = await Promise.all([
+    getAgentManifest(providerDid),
+    listOwnerServiceRecords(),
+  ])
+
+  const publishedServices = allServices
     .filter((service) => service.ownerAgentDid === providerDid)
     .filter((service) => !service.archivedAt)
     .filter((service) => Boolean(service.publishedCapabilityKey && service.latestPublishedSnapshot))

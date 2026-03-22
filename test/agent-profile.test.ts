@@ -1,12 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
-import os from 'node:os'
-import path from 'node:path'
 import test from 'node:test'
-
-const tempDataRoot = mkdtempSync(path.join(os.tmpdir(), 'adp-profile-tests-'))
-
-process.env.ADP_DATA_ROOT = tempDataRoot
 
 const { registerNativeAgent } = await import('../src/lib/adp-v2/agent-registration-service.ts')
 const { createAgentRecord } = await import('../src/lib/adp-v2/agent-record-repository.ts')
@@ -18,24 +11,15 @@ const {
   updateAgentProfileByDid,
 } = await import('../src/lib/adp-v2/agent-profile-service.ts')
 
-function resetStores() {
-  rmSync(tempDataRoot, { recursive: true, force: true })
-  mkdirSync(tempDataRoot, { recursive: true })
-}
-
-test.beforeEach(() => {
-  resetStores()
-})
-
-test('default profile is created during native registration', () => {
-  const { agent } = registerNativeAgent({
+test('default profile is created during native registration', async () => {
+  const { agent } = await registerNativeAgent({
     name: 'Profile Seed Bot',
     role: 'provider',
     supported_protocol_versions: ['2.0'],
     description: 'Provider bot with seeded profile',
   })
 
-  const profile = getAgentProfileRecord(agent.did)
+  const profile = await getAgentProfileRecord(agent.did)
 
   assert.ok(profile)
   assert.equal(profile?.identity.displayName, 'Profile Seed Bot')
@@ -43,8 +27,8 @@ test('default profile is created during native registration', () => {
   assert.equal(profile?.toolGrants.some((grant) => grant.toolKey === 'list_capabilities'), true)
 })
 
-test('old agents lazily receive a default profile on first read', () => {
-  const agent = createAgentRecord({
+test('old agents lazily receive a default profile on first read', async () => {
+  const agent = await createAgentRecord({
     did: 'did:adp:legacy-profile-bot',
     name: 'Legacy Profile Bot',
     role: 'consumer',
@@ -57,24 +41,24 @@ test('old agents lazily receive a default profile on first read', () => {
     preferredProvider: null,
   })
 
-  assert.equal(listAgentProfileRecords().length, 0)
+  assert.equal((await listAgentProfileRecords()).length, 0)
 
-  const profile = ensureAgentProfileByDid(agent.did)
+  const profile = await ensureAgentProfileByDid(agent.did)
 
   assert.ok(profile)
   assert.equal(profile?.identity.displayName, 'Legacy Profile Bot')
-  assert.equal(listAgentProfileRecords().length, 1)
+  assert.equal((await listAgentProfileRecords()).length, 1)
 })
 
-test('public projection redacts private policy and memory internals', () => {
-  const { agent } = registerNativeAgent({
+test('public projection redacts private policy and memory internals', async () => {
+  const { agent } = await registerNativeAgent({
     name: 'Projection Bot',
     role: 'provider',
     supported_protocol_versions: ['2.0'],
     description: 'Projection bot',
   })
 
-  const projection = getPublicAgentProfileProjection(agent.did)
+  const projection = await getPublicAgentProfileProjection(agent.did)
 
   assert.ok(projection)
   assert.equal(projection?.displayName, 'Projection Bot')
@@ -84,18 +68,18 @@ test('public projection redacts private policy and memory internals', () => {
   assert.ok(Array.isArray(projection?.visibleKnowledgeSummaries))
 })
 
-test('safe profile update changes allowed fields and preserves hidden fields', () => {
-  const { agent } = registerNativeAgent({
+test('safe profile update changes allowed fields and preserves hidden fields', async () => {
+  const { agent } = await registerNativeAgent({
     name: 'Safe Update Bot',
     role: 'provider',
     supported_protocol_versions: ['2.0'],
     description: 'Safe update bot',
   })
 
-  const before = getAgentProfilePrivateReadModel(agent.did)
+  const before = await getAgentProfilePrivateReadModel(agent.did)
   assert.ok(before)
 
-  const updated = updateAgentProfileByDid(agent.did, {
+  const updated = await updateAgentProfileByDid(agent.did, {
     displayName: 'Offer Desk Prime',
     purpose: 'Represent the provider with distinct service packaging behavior.',
     ownerDefinedSpecialty: ['quoting', 'service packaging'],

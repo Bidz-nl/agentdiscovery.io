@@ -1,8 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
 
-import { getDataRoot } from '@/lib/project-paths'
+import { kvRead, kvWrite } from '@/lib/kv-store'
 import type { LocalFoodProviderPatch, LocalFoodProviderRecord } from '@/lib/local-food/local-food-types'
 import { normalizePostcodePrefixes } from '@/lib/local-food/local-food-postcode'
 
@@ -10,18 +8,7 @@ type LocalFoodProviderStore = {
   providers: LocalFoodProviderRecord[]
 }
 
-const STORE_DIRECTORY = getDataRoot()
-const STORE_FILE = path.join(STORE_DIRECTORY, 'local-food-providers.json')
-
-function ensureStore() {
-  if (!existsSync(STORE_DIRECTORY)) {
-    mkdirSync(STORE_DIRECTORY, { recursive: true })
-  }
-
-  if (!existsSync(STORE_FILE)) {
-    writeFileSync(STORE_FILE, JSON.stringify({ providers: [] }, null, 2), 'utf8')
-  }
-}
+const KV_KEY = 'localfood:providers'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -73,18 +60,15 @@ function toProviderRecord(value: unknown): LocalFoodProviderRecord | null {
   } as LocalFoodProviderRecord
 }
 
-function readStore(): LocalFoodProviderStore {
-  if (!existsSync(STORE_FILE)) {
+async function readStore(): Promise<LocalFoodProviderStore> {
+  const raw = await kvRead<LocalFoodProviderStore | null>(KV_KEY, null)
+  if (!raw) {
     return { providers: [] }
   }
-
   try {
-    const raw = readFileSync(STORE_FILE, 'utf8')
-    const parsed = JSON.parse(raw) as Partial<LocalFoodProviderStore>
-
     return {
-      providers: Array.isArray(parsed.providers)
-        ? parsed.providers.map((entry) => toProviderRecord(entry)).filter((entry): entry is LocalFoodProviderRecord => Boolean(entry))
+      providers: Array.isArray(raw.providers)
+        ? raw.providers.map((entry) => toProviderRecord(entry)).filter((entry): entry is LocalFoodProviderRecord => Boolean(entry))
         : [],
     }
   } catch {
@@ -92,25 +76,22 @@ function readStore(): LocalFoodProviderStore {
   }
 }
 
-function writeStore(store: LocalFoodProviderStore) {
-  ensureStore()
-  const temporaryFile = `${STORE_FILE}.tmp`
-  writeFileSync(temporaryFile, JSON.stringify(store, null, 2), 'utf8')
-  renameSync(temporaryFile, STORE_FILE)
+async function writeStore(store: LocalFoodProviderStore): Promise<void> {
+  await kvWrite(KV_KEY, store)
 }
 
-export function listLocalFoodProviderRecords() {
-  return readStore().providers
+export async function listLocalFoodProviderRecords() {
+  return (await readStore()).providers
 }
 
-export function getLocalFoodProviderRecord(providerDid: string) {
-  return readStore().providers.find((provider) => provider.providerDid === providerDid) ?? null
+export async function getLocalFoodProviderRecord(providerDid: string) {
+  return (await readStore()).providers.find((provider) => provider.providerDid === providerDid) ?? null
 }
 
-export function createLocalFoodProviderRecord(
+export async function createLocalFoodProviderRecord(
   input: Omit<LocalFoodProviderRecord, 'id' | 'createdAt' | 'updatedAt'>
 ) {
-  const store = readStore()
+  const store = await readStore()
   const now = new Date().toISOString()
   const record: LocalFoodProviderRecord = {
     id: `lf_provider_${randomUUID().replace(/-/g, '')}`,
@@ -123,15 +104,15 @@ export function createLocalFoodProviderRecord(
     },
   }
 
-  writeStore({
+  await writeStore({
     providers: [...store.providers, record],
   })
 
   return record
 }
 
-export function updateLocalFoodProviderRecord(providerDid: string, patch: LocalFoodProviderPatch) {
-  const store = readStore()
+export async function updateLocalFoodProviderRecord(providerDid: string, patch: LocalFoodProviderPatch) {
+  const store = await readStore()
   const current = store.providers.find((provider) => provider.providerDid === providerDid)
   if (!current) {
     return null
@@ -167,7 +148,7 @@ export function updateLocalFoodProviderRecord(providerDid: string, patch: LocalF
     updatedAt: new Date().toISOString(),
   }
 
-  writeStore({
+  await writeStore({
     providers: store.providers.map((provider) => (provider.providerDid === providerDid ? updated : provider)),
   })
 

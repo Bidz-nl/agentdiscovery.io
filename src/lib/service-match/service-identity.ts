@@ -18,8 +18,8 @@ export function toPublishedAgentNumericId(agentDid: string) {
   return toStablePositiveInt(`agent:${agentDid}`)
 }
 
-export function findPublishedServiceByCapabilityId(capabilityId: number) {
-  return listOwnerServiceRecords().find(
+export async function findPublishedServiceByCapabilityId(capabilityId: number) {
+  return (await listOwnerServiceRecords()).find(
     (service) =>
       !service.archivedAt &&
       Boolean(service.publishedCapabilityKey && service.latestPublishedSnapshot) &&

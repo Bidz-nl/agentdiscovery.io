@@ -92,16 +92,16 @@ export async function POST(
       )
     }
 
-    const manifest = getAgentManifest(service.ownerAgentDid)
+    const manifest = await getAgentManifest(service.ownerAgentDid)
     const updatedManifest = manifest
       ? removeManifestCapability(manifest, service.publishedCapabilityKey, service.category)
       : null
 
     if (updatedManifest) {
-      saveAgentManifest(updatedManifest)
+      await saveAgentManifest(updatedManifest)
     }
 
-    upsertOwnerServicePublicationMetadata(service.id, {
+    await upsertOwnerServicePublicationMetadata(service.id, {
       publishedCapabilityKey: null,
       projectionVersion: service.projectionVersion,
       publishedAt: null,

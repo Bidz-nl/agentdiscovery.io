@@ -16,11 +16,16 @@ export async function GET(request: NextRequest) {
 
   const activeDid = ownerSession.activeProviderDid
 
-  const native = listNativeNegotiationRecords().filter(
+  const [allNative, allSession] = await Promise.all([
+    listNativeNegotiationRecords(),
+    listSessionNegotiationRecords(),
+  ])
+
+  const native = allNative.filter(
     (n) => n.initiatorDid === activeDid || n.responderDid === activeDid
   )
 
-  const session = listSessionNegotiationRecords().filter(
+  const session = allSession.filter(
     (n) => n.initiatorDid === activeDid || n.responderDid === activeDid
   )
 

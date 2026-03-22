@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    return NextResponse.json(createServiceMatchResponse(findNativeServiceMatches(parsed.data)))
+    return NextResponse.json(createServiceMatchResponse(await findNativeServiceMatches(parsed.data)))
   } catch (error) {
     console.error('[Service Match Route] Error:', error)
     return NextResponse.json(

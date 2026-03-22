@@ -364,13 +364,13 @@ export function buildDefaultAgentProfileInput(agent: AgentRecord): Omit<AgentPro
   }
 }
 
-export function ensureAgentProfileByDid(agentDid: string): AgentProfileRecord | null {
-  const existing = getAgentProfileRecord(agentDid)
+export async function ensureAgentProfileByDid(agentDid: string): Promise<AgentProfileRecord | null> {
+  const existing = await getAgentProfileRecord(agentDid)
   if (existing) {
     return existing
   }
 
-  const agent = getAgentRecordByDid(agentDid)
+  const agent = await getAgentRecordByDid(agentDid)
   if (!agent) {
     return null
   }
@@ -378,13 +378,13 @@ export function ensureAgentProfileByDid(agentDid: string): AgentProfileRecord | 
   return createAgentProfileRecord(buildDefaultAgentProfileInput(agent))
 }
 
-export function createDefaultAgentProfileForDid(agentDid: string): AgentProfileRecord | null {
-  const agent = getAgentRecordByDid(agentDid)
+export async function createDefaultAgentProfileForDid(agentDid: string): Promise<AgentProfileRecord | null> {
+  const agent = await getAgentRecordByDid(agentDid)
   if (!agent) {
     return null
   }
 
-  const existing = getAgentProfileRecord(agentDid)
+  const existing = await getAgentProfileRecord(agentDid)
   if (existing) {
     return existing
   }
@@ -502,8 +502,8 @@ function rebuildDerivedProfileSections(profile: AgentProfileRecord): AgentProfil
   }
 }
 
-export function updateAgentProfileByDid(agentDid: string, input: UpdateAgentProfileInput): AgentProfileRecord | null {
-  const existing = ensureAgentProfileByDid(agentDid)
+export async function updateAgentProfileByDid(agentDid: string, input: UpdateAgentProfileInput): Promise<AgentProfileRecord | null> {
+  const existing = await ensureAgentProfileByDid(agentDid)
   if (!existing) {
     return null
   }
@@ -531,8 +531,8 @@ export function updateAgentProfileByDid(agentDid: string, input: UpdateAgentProf
   })
 }
 
-export function getAgentProfilePrivateReadModel(agentDid: string): AgentProfilePrivateReadModel | null {
-  const profile = ensureAgentProfileByDid(agentDid)
+export async function getAgentProfilePrivateReadModel(agentDid: string): Promise<AgentProfilePrivateReadModel | null> {
+  const profile = await ensureAgentProfileByDid(agentDid)
   if (!profile) {
     return null
   }
@@ -555,8 +555,8 @@ export function getAgentProfilePrivateReadModel(agentDid: string): AgentProfileP
   }
 }
 
-export function getPublicAgentProfileProjection(agentDid: string): PublicAgentProfileProjection | null {
-  const profile = ensureAgentProfileByDid(agentDid)
+export async function getPublicAgentProfileProjection(agentDid: string): Promise<PublicAgentProfileProjection | null> {
+  const profile = await ensureAgentProfileByDid(agentDid)
   if (!profile) {
     return null
   }
@@ -587,8 +587,8 @@ export function getPublicAgentProfileProjection(agentDid: string): PublicAgentPr
   }
 }
 
-export function getAgentRuntimeEnforcementProjection(agentDid: string): AgentProfileRuntimeProjection | null {
-  const profile = ensureAgentProfileByDid(agentDid)
+export async function getAgentRuntimeEnforcementProjection(agentDid: string): Promise<AgentProfileRuntimeProjection | null> {
+  const profile = await ensureAgentProfileByDid(agentDid)
   if (!profile) {
     return null
   }

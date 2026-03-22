@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const nameError = validateAgentNamePolicy(validation.data.name)
+  const nameError = await validateAgentNamePolicy(validation.data.name)
   if (nameError) {
     return jsonAdpV2Error(
       nameError.code === 'AGENT_NAME_TAKEN' ? 409 : 400,
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const registration = registerNativeAgent(validation.data)
+  const registration = await registerNativeAgent(validation.data)
 
   return jsonAdpV2Success({
     ok: true,

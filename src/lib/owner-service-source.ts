@@ -2,12 +2,11 @@ import { listOwnerServiceRecords, getOwnerServiceRecord } from '@/lib/owner-serv
 import { getOwnerServicePublicationMetadata } from '@/lib/owner-service-publication-repository'
 import type { OwnerServiceReadModel, ServiceRecord } from '@/lib/owner-services'
 
-function toOwnerServiceStatus(record: ServiceRecord): OwnerServiceReadModel['status'] {
+function toOwnerServiceStatus(record: ServiceRecord, metadata: Awaited<ReturnType<typeof getOwnerServicePublicationMetadata>>): OwnerServiceReadModel['status'] {
   if (record.archivedAt) {
     return 'archived'
   }
 
-  const metadata = getOwnerServicePublicationMetadata(record.id)
   return metadata?.publishedCapabilityKey ? 'published' : 'draft'
 }
 
@@ -47,8 +46,8 @@ export function buildPublishedCapabilityProjection(
   }
 }
 
-function toOwnerServiceReadModel(record: ServiceRecord): OwnerServiceReadModel {
-  const metadata = getOwnerServicePublicationMetadata(record.id)
+async function toOwnerServiceReadModel(record: ServiceRecord): Promise<OwnerServiceReadModel> {
+  const metadata = await getOwnerServicePublicationMetadata(record.id)
   const publishedCapabilityKey = metadata?.publishedCapabilityKey ?? null
 
   return {
@@ -57,7 +56,7 @@ function toOwnerServiceReadModel(record: ServiceRecord): OwnerServiceReadModel {
     title: record.title,
     category: record.category,
     description: record.description,
-    status: toOwnerServiceStatus(record),
+    status: toOwnerServiceStatus(record, metadata),
     publishedCapabilityKey,
     projectionVersion: metadata?.projectionVersion ?? 0,
     publishedAt: metadata?.publishedAt ?? null,
@@ -76,15 +75,18 @@ function toOwnerServiceReadModel(record: ServiceRecord): OwnerServiceReadModel {
 }
 
 export async function fetchOwnerServices(activeProviderDid: string): Promise<OwnerServiceReadModel[]> {
-  return listOwnerServiceRecords()
-    .filter((record) => record.ownerAgentDid === activeProviderDid)
-    .map(toOwnerServiceReadModel)
+  const records = await listOwnerServiceRecords()
+  const filtered = records.filter((record) => record.ownerAgentDid === activeProviderDid)
+  return Promise.all(filtered.map(toOwnerServiceReadModel))
 }
 
 export async function fetchOwnerServiceById(
   activeProviderDid: string,
   serviceId: string
 ): Promise<OwnerServiceReadModel | null> {
-  const service = getOwnerServiceRecord(serviceId)
-  return service && service.ownerAgentDid === activeProviderDid ? toOwnerServiceReadModel(service) : null
+  const service = await getOwnerServiceRecord(serviceId)
+  if (!service || service.ownerAgentDid !== activeProviderDid) {
+    return null
+  }
+  return toOwnerServiceReadModel(service)
 }

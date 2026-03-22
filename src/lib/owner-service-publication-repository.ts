@@ -1,8 +1,8 @@
 import { getOwnerServiceRecord, updateOwnerServicePublicationMetadata } from '@/lib/owner-service-repository'
 import type { OwnerServicePublicationMetadata } from '@/lib/owner-services'
 
-export function getOwnerServicePublicationMetadata(serviceId: string): OwnerServicePublicationMetadata | null {
-  const service = getOwnerServiceRecord(serviceId)
+export async function getOwnerServicePublicationMetadata(serviceId: string): Promise<OwnerServicePublicationMetadata | null> {
+  const service = await getOwnerServiceRecord(serviceId)
   if (!service) {
     return null
   }
@@ -16,10 +16,10 @@ export function getOwnerServicePublicationMetadata(serviceId: string): OwnerServ
   }
 }
 
-export function upsertOwnerServicePublicationMetadata(
+export async function upsertOwnerServicePublicationMetadata(
   serviceId: string,
   metadata: OwnerServicePublicationMetadata
-): OwnerServicePublicationMetadata {
-  updateOwnerServicePublicationMetadata(serviceId, metadata)
+): Promise<OwnerServicePublicationMetadata> {
+  await updateOwnerServicePublicationMetadata(serviceId, metadata)
   return metadata
 }

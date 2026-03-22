@@ -1,26 +1,13 @@
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
 
-import { getDataRoot } from '@/lib/project-paths'
+import { kvRead, kvWrite } from '@/lib/kv-store'
 import type { AgentPolicyRecord } from '@/lib/agent-runtime'
 
 type AgentPolicyStoreFile = {
   policies: AgentPolicyRecord[]
 }
 
-const AGENT_POLICY_STORE_DIRECTORY = getDataRoot()
-const AGENT_POLICY_STORE_FILE = path.join(AGENT_POLICY_STORE_DIRECTORY, 'adp-v2-agent-policies.json')
-
-function ensureAgentPolicyStore() {
-  if (!existsSync(AGENT_POLICY_STORE_DIRECTORY)) {
-    mkdirSync(AGENT_POLICY_STORE_DIRECTORY, { recursive: true })
-  }
-
-  if (!existsSync(AGENT_POLICY_STORE_FILE)) {
-    writeFileSync(AGENT_POLICY_STORE_FILE, JSON.stringify({ policies: [] }, null, 2), 'utf8')
-  }
-}
+const KV_KEY = 'adp:agent-policies'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -63,17 +50,15 @@ function toAgentPolicyRecord(value: unknown): AgentPolicyRecord | null {
   }
 }
 
-function readAgentPolicyStore(): AgentPolicyStoreFile {
-  if (!existsSync(AGENT_POLICY_STORE_FILE)) {
+async function readAgentPolicyStore(): Promise<AgentPolicyStoreFile> {
+  const raw = await kvRead<AgentPolicyStoreFile | null>(KV_KEY, null)
+  if (!raw) {
     return { policies: [] }
   }
-
   try {
-    const raw = readFileSync(AGENT_POLICY_STORE_FILE, 'utf8')
-    const parsed = JSON.parse(raw) as Partial<AgentPolicyStoreFile>
     return {
-      policies: Array.isArray(parsed.policies)
-        ? parsed.policies.map(toAgentPolicyRecord).filter((record): record is AgentPolicyRecord => Boolean(record))
+      policies: Array.isArray(raw.policies)
+        ? raw.policies.map(toAgentPolicyRecord).filter((record): record is AgentPolicyRecord => Boolean(record))
         : [],
     }
   } catch {
@@ -81,24 +66,21 @@ function readAgentPolicyStore(): AgentPolicyStoreFile {
   }
 }
 
-function writeAgentPolicyStore(store: AgentPolicyStoreFile) {
-  ensureAgentPolicyStore()
-  const temporaryFile = `${AGENT_POLICY_STORE_FILE}.tmp`
-  writeFileSync(temporaryFile, JSON.stringify(store, null, 2), 'utf8')
-  renameSync(temporaryFile, AGENT_POLICY_STORE_FILE)
+async function writeAgentPolicyStore(store: AgentPolicyStoreFile): Promise<void> {
+  await kvWrite(KV_KEY, store)
 }
 
-export function getAgentPolicyRecord(agentId: number): AgentPolicyRecord | null {
-  return readAgentPolicyStore().policies.find((record) => record.agentId === agentId) ?? null
+export async function getAgentPolicyRecord(agentId: number): Promise<AgentPolicyRecord | null> {
+  return (await readAgentPolicyStore()).policies.find((record) => record.agentId === agentId) ?? null
 }
 
-export function ensureAgentPolicyRecord(agentId: number): AgentPolicyRecord {
-  const existing = getAgentPolicyRecord(agentId)
+export async function ensureAgentPolicyRecord(agentId: number): Promise<AgentPolicyRecord> {
+  const existing = await getAgentPolicyRecord(agentId)
   if (existing) {
     return existing
   }
 
-  const store = readAgentPolicyStore()
+  const store = await readAgentPolicyStore()
   const timestamp = new Date().toISOString()
   const record: AgentPolicyRecord = {
     id: `policy_${randomUUID().replace(/-/g, '')}`,
@@ -111,19 +93,19 @@ export function ensureAgentPolicyRecord(agentId: number): AgentPolicyRecord {
     updatedAt: timestamp,
   }
 
-  writeAgentPolicyStore({
+  await writeAgentPolicyStore({
     policies: [...store.policies, record],
   })
 
   return record
 }
 
-export function updateAgentPolicyRecord(
+export async function updateAgentPolicyRecord(
   agentId: number,
   updater: (record: AgentPolicyRecord) => AgentPolicyRecord
-): AgentPolicyRecord {
-  const store = readAgentPolicyStore()
-  const existing = ensureAgentPolicyRecord(agentId)
+): Promise<AgentPolicyRecord> {
+  const store = await readAgentPolicyStore()
+  const existing = await ensureAgentPolicyRecord(agentId)
   const updated = {
     ...updater(existing),
     updatedAt: new Date().toISOString(),
@@ -131,7 +113,7 @@ export function updateAgentPolicyRecord(
 
   const hasExisting = store.policies.some((record) => record.agentId === agentId)
 
-  writeAgentPolicyStore({
+  await writeAgentPolicyStore({
     policies: hasExisting
       ? store.policies.map((record) => (record.agentId === agentId ? updated : record))
       : [...store.policies, updated],

@@ -50,7 +50,7 @@ function sanitizeRuntimeErrorMessage(message: string) {
     .trim()
 }
 
-function toCredentialReadModel(record: ReturnType<typeof getActiveAgentProviderCredential>): AgentCredentialReadModel | null {
+function toCredentialReadModel(record: Awaited<ReturnType<typeof getActiveAgentProviderCredential>>): AgentCredentialReadModel | null {
   if (!record || (record.provider !== 'openai' && record.provider !== 'anthropic')) {
     return null
   }
@@ -71,7 +71,7 @@ function toCredentialReadModel(record: ReturnType<typeof getActiveAgentProviderC
 }
 
 function getConnectionValidationStatus(
-  credential: ReturnType<typeof getActiveAgentProviderCredential>
+  credential: Awaited<ReturnType<typeof getActiveAgentProviderCredential>>
 ): AgentCredentialValidationStatus {
   if (!credential) {
     return 'unvalidated'
@@ -128,7 +128,7 @@ async function runSafeReadOnlyTool(activeProviderDid: string) {
 }
 
 async function resolveRuntimeCredential(agentId: number, provider: 'openai' | 'anthropic') {
-  const credential = getActiveAgentProviderCredential(agentId, provider)
+  const credential = await getActiveAgentProviderCredential(agentId, provider)
   if (!credential) {
     return null
   }
@@ -155,8 +155,8 @@ async function resolveRuntimeCredential(agentId: number, provider: 'openai' | 'a
   }
 }
 
-function toSpendSummary(agentId: number, spendCapUsd: number) {
-  const trackedEstimatedCostUsd = Number(sumAgentRunEstimatedCostUsd(agentId).toFixed(6))
+async function toSpendSummary(agentId: number, spendCapUsd: number) {
+  const trackedEstimatedCostUsd = Number((await sumAgentRunEstimatedCostUsd(agentId)).toFixed(6))
   const remainingBudgetUsd = Number(Math.max(0, spendCapUsd - trackedEstimatedCostUsd).toFixed(6))
   const blocked = spendCapUsd <= 0 || remainingBudgetUsd < SANDBOX_COST_RESERVE_USD
 
@@ -264,23 +264,25 @@ function toFailureCode(errorMessage: string): AgentRunFailureCode {
 }
 
 export async function getAgentRuntimeReadModelByDid(agentDid: string): Promise<AgentRuntimeReadModel | null> {
-  const agent = getAgentRecordByDid(agentDid)
+  const agent = await getAgentRecordByDid(agentDid)
   if (!agent) {
     return null
   }
 
-  const policy = ensureAgentPolicyRecord(agent.id)
-  const recentRuns = listAgentRunRecords(agent.id).slice(0, 8)
+  const [policy, recentRuns, credential, profileProjection] = await Promise.all([
+    ensureAgentPolicyRecord(agent.id),
+    listAgentRunRecords(agent.id).then((runs) => runs.slice(0, 8)),
+    agent.preferredProvider ? getActiveAgentProviderCredential(agent.id, agent.preferredProvider) : Promise.resolve(null),
+    getAgentRuntimeEnforcementProjection(agent.did),
+  ])
   const preferredProvider = agent.preferredProvider
-  const credential = preferredProvider ? getActiveAgentProviderCredential(agent.id, preferredProvider) : null
-  const profileProjection = getAgentRuntimeEnforcementProjection(agent.did)
   const validationStatus = getConnectionValidationStatus(credential)
   const effectiveRuntimeStatus = determineRuntimeStatus({
     policyEnabled: policy.enabled,
     preferredProvider,
     validationStatus,
   })
-  const spend = toSpendSummary(agent.id, policy.spendCapUsd)
+  const spend = await toSpendSummary(agent.id, policy.spendCapUsd)
   const state = deriveRuntimeState({
     runtimeStatus: effectiveRuntimeStatus,
     validationStatus,
@@ -290,7 +292,7 @@ export async function getAgentRuntimeReadModelByDid(agentDid: string): Promise<A
   })
 
   if (effectiveRuntimeStatus !== agent.runtimeStatus) {
-    updateAgentRuntimeConfiguration(agent.did, { runtimeStatus: effectiveRuntimeStatus })
+    await updateAgentRuntimeConfiguration(agent.did, { runtimeStatus: effectiveRuntimeStatus })
   }
 
   return {
@@ -327,14 +329,14 @@ export async function getAgentRuntimeReadModelByDid(agentDid: string): Promise<A
 }
 
 export async function connectAgentRuntimeProvider(agentDid: string, input: ConnectRuntimeProviderRequest) {
-  const agent = getAgentRecordByDid(agentDid)
+  const agent = await getAgentRecordByDid(agentDid)
   if (!agent) {
     throw new Error('Agent not found')
   }
 
   const provider = input.provider
   const adapter = getProviderAdapter(provider)
-  const policy = ensureAgentPolicyRecord(agent.id)
+  const policy = await ensureAgentPolicyRecord(agent.id)
   const providedApiKey = typeof input.apiKey === 'string' ? input.apiKey.trim() : ''
   const source = providedApiKey ? 'bring_your_own' : 'hosted_managed'
   const apiKey = providedApiKey || getHostedManagedProviderApiKey(provider)
@@ -352,13 +354,13 @@ export async function connectAgentRuntimeProvider(agentDid: string, input: Conne
     throw new Error(sanitizeRuntimeErrorMessage(validation.message))
   }
 
-  for (const credential of listAgentCredentialRecords(agent.id)) {
+  for (const credential of await listAgentCredentialRecords(agent.id)) {
     if (credential.kind === 'provider_api_key' && credential.provider === provider && credential.status === 'active') {
-      revokeAgentCredential(credential.id)
+      await revokeAgentCredential(credential.id)
     }
   }
 
-  const credential = createAgentCredentialRecord({
+  const credential = await createAgentCredentialRecord({
     agentId: agent.id,
     label: input.label?.trim() || `${provider} runtime`,
     kind: 'provider_api_key',
@@ -372,7 +374,7 @@ export async function connectAgentRuntimeProvider(agentDid: string, input: Conne
     validatedAt: new Date().toISOString(),
   })
 
-  updateAgentRuntimeConfiguration(agent.did, {
+  await updateAgentRuntimeConfiguration(agent.did, {
     runtimeMode: 'hosted',
     runtimeStatus: determineRuntimeStatus({
       policyEnabled: policy.enabled,
@@ -390,7 +392,7 @@ export async function connectAgentRuntimeProvider(agentDid: string, input: Conne
 }
 
 export async function updateAgentRuntimePolicy(agentDid: string, input: UpdateAgentPolicyRequest) {
-  const agent = getAgentRecordByDid(agentDid)
+  const agent = await getAgentRecordByDid(agentDid)
   if (!agent) {
     throw new Error('Agent not found')
   }
@@ -399,7 +401,7 @@ export async function updateAgentRuntimePolicy(agentDid: string, input: UpdateAg
     ? input.allowedTools.filter((tool): tool is 'list_capabilities' => tool === 'list_capabilities')
     : undefined
 
-  const policy = updateAgentPolicyRecord(agent.id, (current) => ({
+  const policy = await updateAgentPolicyRecord(agent.id, (current) => ({
     ...current,
     enabled: typeof input.enabled === 'boolean' ? input.enabled : current.enabled,
     approvalRequired: typeof input.approvalRequired === 'boolean' ? input.approvalRequired : current.approvalRequired,
@@ -408,13 +410,11 @@ export async function updateAgentRuntimePolicy(agentDid: string, input: UpdateAg
       typeof input.spendCapUsd === 'number' && Number.isFinite(input.spendCapUsd) ? Math.max(0, input.spendCapUsd) : current.spendCapUsd,
   }))
 
-  const credential =
-    agent.preferredProvider && getActiveAgentProviderCredential(agent.id, agent.preferredProvider)
-      ? getActiveAgentProviderCredential(agent.id, agent.preferredProvider)
-      : null
+  const rawCredential = agent.preferredProvider ? await getActiveAgentProviderCredential(agent.id, agent.preferredProvider) : null
+  const credential = rawCredential ?? null
   const validationStatus = getConnectionValidationStatus(credential)
 
-  updateAgentRuntimeConfiguration(agent.did, {
+  await updateAgentRuntimeConfiguration(agent.did, {
     runtimeStatus: determineRuntimeStatus({
       policyEnabled: policy.enabled,
       preferredProvider: agent.preferredProvider,
@@ -433,7 +433,7 @@ export async function runAgentSandbox(
   activeProviderDid: string,
   input: SandboxRunRequest
 ): Promise<{ run: AgentRunRecord; runtime: AgentRuntimeReadModel | null }> {
-  const agent = getAgentRecordByDid(agentDid)
+  const agent = await getAgentRecordByDid(agentDid)
   if (!agent) {
     throw new Error('Agent not found')
   }
@@ -467,7 +467,7 @@ export async function runAgentSandbox(
     ? await runSafeReadOnlyTool(activeProviderDid)
     : undefined
 
-  const pendingRun = createAgentRunRecord({
+  const pendingRun = await createAgentRunRecord({
     agentId: agent.id,
     provider,
     model: input.model?.trim() || (provider === 'openai' ? 'gpt-4o-mini' : 'claude-3-5-haiku-latest'),
@@ -506,7 +506,7 @@ export async function runAgentSandbox(
     })
 
     const estimatedCostUsd = estimateRunCostUsd(provider, result.usage.inputTokens, result.usage.outputTokens)
-    const completedRun = updateAgentRunRecord(pendingRun.id, (record) => ({
+    const completedRun = await updateAgentRunRecord(pendingRun.id, (record) => ({
       ...record,
       status: 'completed',
       model: result.model,
@@ -520,8 +520,8 @@ export async function runAgentSandbox(
       },
     }))
 
-    setAgentCredentialValidation(credentialResolution.credential.id, 'valid')
-    updateAgentRuntimeConfiguration(agent.did, {
+    await setAgentCredentialValidation(credentialResolution.credential.id, 'valid')
+    await updateAgentRuntimeConfiguration(agent.did, {
       runtimeMode: 'hosted',
       runtimeStatus: determineRuntimeStatus({
         policyEnabled: runtime.policy.enabled,
@@ -539,8 +539,8 @@ export async function runAgentSandbox(
     const sanitizedMessage = sanitizeRuntimeErrorMessage(error instanceof Error ? error.message : 'Sandbox run failed')
     const failureCode = toFailureCode(sanitizedMessage)
 
-    setAgentCredentialValidation(credentialResolution.credential.id, failureCode === 'provider_auth_failed' ? 'invalid' : 'valid')
-    updateAgentRuntimeConfiguration(agent.did, {
+    await setAgentCredentialValidation(credentialResolution.credential.id, failureCode === 'provider_auth_failed' ? 'invalid' : 'valid')
+    await updateAgentRuntimeConfiguration(agent.did, {
       runtimeMode: 'hosted',
       runtimeStatus: determineRuntimeStatus({
         policyEnabled: runtime.policy.enabled,
@@ -550,7 +550,7 @@ export async function runAgentSandbox(
       preferredProvider: provider,
     })
 
-    const failedRun = updateAgentRunRecord(pendingRun.id, (record) => ({
+    const failedRun = await updateAgentRunRecord(pendingRun.id, (record) => ({
       ...record,
       status: 'failed',
       completedAt: new Date().toISOString(),

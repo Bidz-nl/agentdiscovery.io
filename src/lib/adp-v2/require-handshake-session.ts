@@ -18,9 +18,9 @@ export type HandshakeSessionGuardResult =
   | { ok: true; session: HandshakeSession }
   | { ok: false; error: HandshakeSessionGuardError }
 
-export function requireHandshakeSession(sessionId: string): HandshakeSessionGuardResult {
+export async function requireHandshakeSession(sessionId: string): Promise<HandshakeSessionGuardResult> {
   const normalizedSessionId = sessionId.trim()
-  const session = getHandshakeSession(normalizedSessionId)
+  const session = await getHandshakeSession(normalizedSessionId)
 
   if (!session) {
     return {

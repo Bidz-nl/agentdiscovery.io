@@ -1,7 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
-
-import { getDataRoot } from '@/lib/project-paths'
+import { kvRead, kvWrite } from '@/lib/kv-store'
 
 export type SessionNegotiationRecord = {
   id: number
@@ -32,23 +29,7 @@ type PersistedSessionNegotiationRecord = Omit<SessionNegotiationRecord, 'source'
   source?: 'session' | 'compat_session'
 }
 
-const SESSION_NEGOTIATION_STORE_DIRECTORY = getDataRoot()
-const LEGACY_NEGOTIATION_STORE_FILE = path.join(SESSION_NEGOTIATION_STORE_DIRECTORY, 'compat-negotiations.json')
-const SESSION_NEGOTIATION_STORE_FILE = path.join(SESSION_NEGOTIATION_STORE_DIRECTORY, 'session-negotiations.json')
-
-function ensureSessionNegotiationStore() {
-  if (!existsSync(SESSION_NEGOTIATION_STORE_DIRECTORY)) {
-    mkdirSync(SESSION_NEGOTIATION_STORE_DIRECTORY, { recursive: true })
-  }
-
-  if (!existsSync(SESSION_NEGOTIATION_STORE_FILE) && existsSync(LEGACY_NEGOTIATION_STORE_FILE)) {
-    renameSync(LEGACY_NEGOTIATION_STORE_FILE, SESSION_NEGOTIATION_STORE_FILE)
-  }
-
-  if (!existsSync(SESSION_NEGOTIATION_STORE_FILE)) {
-    writeFileSync(SESSION_NEGOTIATION_STORE_FILE, JSON.stringify({ negotiations: [] }, null, 2), 'utf8')
-  }
-}
+const KV_KEY = 'adp:session-negotiations'
 
 function toSessionNegotiationRound(
   round: Partial<SessionNegotiationRecord['rounds'][number]>
@@ -134,39 +115,24 @@ function isSessionNegotiationRecord(record: SessionNegotiationRecord | null): re
   return Boolean(record)
 }
 
-function readSessionNegotiationStore(): SessionNegotiationStoreFile {
-  const readableStoreFile = existsSync(SESSION_NEGOTIATION_STORE_FILE)
-    ? SESSION_NEGOTIATION_STORE_FILE
-    : existsSync(LEGACY_NEGOTIATION_STORE_FILE)
-      ? LEGACY_NEGOTIATION_STORE_FILE
-      : null
-
-  if (!readableStoreFile) {
-    return {
-      negotiations: [],
-    }
+async function readSessionNegotiationStore(): Promise<SessionNegotiationStoreFile> {
+  const raw = await kvRead<SessionNegotiationStoreFile | null>(KV_KEY, null)
+  if (!raw) {
+    return { negotiations: [] }
   }
-
   try {
-    const raw = readFileSync(readableStoreFile, 'utf8')
-    const parsed = JSON.parse(raw) as Partial<SessionNegotiationStoreFile & { negotiations: PersistedSessionNegotiationRecord[] }>
     return {
-      negotiations: Array.isArray(parsed.negotiations)
-        ? parsed.negotiations.map(toSessionNegotiationRecord).filter(isSessionNegotiationRecord)
+      negotiations: Array.isArray(raw.negotiations)
+        ? (raw.negotiations as Partial<PersistedSessionNegotiationRecord>[]).map(toSessionNegotiationRecord).filter(isSessionNegotiationRecord)
         : [],
     }
   } catch {
-    return {
-      negotiations: [],
-    }
+    return { negotiations: [] }
   }
 }
 
-function writeSessionNegotiationStore(store: SessionNegotiationStoreFile) {
-  ensureSessionNegotiationStore()
-  const temporaryFile = `${SESSION_NEGOTIATION_STORE_FILE}.tmp`
-  writeFileSync(temporaryFile, JSON.stringify(store, null, 2), 'utf8')
-  renameSync(temporaryFile, SESSION_NEGOTIATION_STORE_FILE)
+async function writeSessionNegotiationStore(store: SessionNegotiationStoreFile): Promise<void> {
+  await kvWrite(KV_KEY, store)
 }
 
 function getNextSessionNegotiationId(records: SessionNegotiationRecord[]) {
@@ -174,36 +140,36 @@ function getNextSessionNegotiationId(records: SessionNegotiationRecord[]) {
   return maxId + 1
 }
 
-export function createSessionNegotiationRecord(
+export async function createSessionNegotiationRecord(
   input: Omit<SessionNegotiationRecord, 'id'>
-): SessionNegotiationRecord {
-  const store = readSessionNegotiationStore()
+): Promise<SessionNegotiationRecord> {
+  const store = await readSessionNegotiationStore()
   const record: SessionNegotiationRecord = {
     id: getNextSessionNegotiationId(store.negotiations),
     ...input,
     source: 'session',
   }
 
-  writeSessionNegotiationStore({
+  await writeSessionNegotiationStore({
     negotiations: [...store.negotiations, record],
   })
 
   return record
 }
 
-export function getSessionNegotiationRecord(id: number): SessionNegotiationRecord | null {
-  return readSessionNegotiationStore().negotiations.find((record) => record.id === id) ?? null
+export async function getSessionNegotiationRecord(id: number): Promise<SessionNegotiationRecord | null> {
+  return (await readSessionNegotiationStore()).negotiations.find((record) => record.id === id) ?? null
 }
 
-export function listSessionNegotiationRecords(): SessionNegotiationRecord[] {
-  return readSessionNegotiationStore().negotiations
+export async function listSessionNegotiationRecords(): Promise<SessionNegotiationRecord[]> {
+  return (await readSessionNegotiationStore()).negotiations
 }
 
-export function updateSessionNegotiationRecord(
+export async function updateSessionNegotiationRecord(
   id: number,
   updater: (record: SessionNegotiationRecord) => SessionNegotiationRecord
-): SessionNegotiationRecord | null {
-  const store = readSessionNegotiationStore()
+): Promise<SessionNegotiationRecord | null> {
+  const store = await readSessionNegotiationStore()
   const existing = store.negotiations.find((record) => record.id === id)
 
   if (!existing) {
@@ -214,7 +180,7 @@ export function updateSessionNegotiationRecord(
     ...updater(existing),
     source: 'session' as const,
   }
-  writeSessionNegotiationStore({
+  await writeSessionNegotiationStore({
     negotiations: store.negotiations.map((record) => (record.id === id ? updated : record)),
   })
 

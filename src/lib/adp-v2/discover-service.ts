@@ -7,8 +7,13 @@ import type {
   DiscoverPayload,
 } from '@/lib/adp-v2/discover-types'
 
-export function findDiscoverMatches(discover: DiscoverPayload): DiscoverMatch[] {
-  const publishedServices = listOwnerServiceRecords()
+export async function findDiscoverMatches(discover: DiscoverPayload): Promise<DiscoverMatch[]> {
+  const [allServices, allAgents] = await Promise.all([
+    listOwnerServiceRecords(),
+    listAgentRecords(),
+  ])
+
+  const publishedServices = allServices
     .filter((service) => !service.archivedAt)
     .filter((service) => Boolean(service.publishedCapabilityKey && service.latestPublishedSnapshot))
 
@@ -19,7 +24,7 @@ export function findDiscoverMatches(discover: DiscoverPayload): DiscoverMatch[] 
     publishedServicesByProvider.set(service.ownerAgentDid, existing)
   })
 
-  return listAgentRecords()
+  const matchingAgents = allAgents
     .filter((agent) => agent.role === 'provider')
     .filter((agent) => agent.status === 'active')
     .filter((agent) => agent.supportedProtocolVersions.includes('2.0'))
@@ -56,25 +61,31 @@ export function findDiscoverMatches(discover: DiscoverPayload): DiscoverMatch[] 
         ? capabilities.some((capability) => capability.key.toLowerCase() === discover.capability_key?.toLowerCase())
         : true
     )
-    .map(({ agent, categories, capabilities }) => ({
+
+  const results: DiscoverMatch[] = []
+  for (const { agent, categories, capabilities } of matchingAgents) {
+    results.push({
       did: agent.did,
       name: agent.name,
       role: agent.role,
       categories,
       capabilities,
-      profile: getPublicAgentProfileProjection(agent.did) ?? undefined,
-    }))
+      profile: (await getPublicAgentProfileProjection(agent.did)) ?? undefined,
+    })
+  }
+
+  return results
 }
 
-export function createDiscoverCompletedResponse(
+export async function createDiscoverCompletedResponse(
   sessionId: string,
   discover: DiscoverPayload
-): DiscoverCompletedResponse {
+): Promise<DiscoverCompletedResponse> {
   return {
     ok: true,
     message: 'ADP v2 discover completed',
     session_id: sessionId,
     discover,
-    matches: findDiscoverMatches(discover),
+    matches: await findDiscoverMatches(discover),
   }
 }

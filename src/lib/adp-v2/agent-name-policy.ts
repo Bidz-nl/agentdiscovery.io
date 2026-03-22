@@ -18,7 +18,7 @@ function validateReservedAgentName(name: string) {
   return null
 }
 
-export function validateAgentNamePolicy(name: string, options?: { excludeDid?: string | null }) {
+export async function validateAgentNamePolicy(name: string, options?: { excludeDid?: string | null }) {
   const normalizedName = normalizeAgentName(name)
 
   if (!normalizedName) {
@@ -33,7 +33,7 @@ export function validateAgentNamePolicy(name: string, options?: { excludeDid?: s
     return reservedNameError
   }
 
-  const existingAgent = getAgentRecordByName(normalizedName)
+  const existingAgent = await getAgentRecordByName(normalizedName)
   if (existingAgent && existingAgent.did !== (options?.excludeDid ?? null)) {
     return {
       code: 'AGENT_NAME_TAKEN',

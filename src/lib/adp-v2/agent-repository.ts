@@ -1,20 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
-
-import { getDataRoot } from '@/lib/project-paths'
+import { kvRead, kvWrite } from '@/lib/kv-store'
 import type { AgentManifest } from '@/lib/adp-v2/agent-types'
 
-const AGENT_MANIFEST_STORE_DIRECTORY = path.join(getDataRoot(), 'agent-manifests')
-
-function ensureAgentManifestStore(): void {
-  if (!existsSync(AGENT_MANIFEST_STORE_DIRECTORY)) {
-    mkdirSync(AGENT_MANIFEST_STORE_DIRECTORY, { recursive: true })
-  }
-}
-
-function getManifestStoreFilePath(did: string): string {
-  return path.join(AGENT_MANIFEST_STORE_DIRECTORY, `${encodeURIComponent(did)}.json`)
-}
+const KV_KEY = 'adp:agent-manifests'
 
 function toAgentManifest(manifest: Partial<AgentManifest>): AgentManifest {
   return {
@@ -57,40 +44,20 @@ function toAgentManifest(manifest: Partial<AgentManifest>): AgentManifest {
   }
 }
 
-function readAgentManifestFile(filePath: string): AgentManifest | null {
-  try {
-    const raw = readFileSync(filePath, 'utf8')
-    return toAgentManifest(JSON.parse(raw) as Partial<AgentManifest>)
-  } catch {
-    return null
-  }
-}
-
-export function saveAgentManifest(manifest: AgentManifest): AgentManifest {
-  ensureAgentManifestStore()
+export async function saveAgentManifest(manifest: AgentManifest): Promise<AgentManifest> {
   const nextManifest = toAgentManifest(manifest)
-  const targetFile = getManifestStoreFilePath(nextManifest.did)
-  const temporaryFile = `${targetFile}.tmp`
-  writeFileSync(temporaryFile, JSON.stringify(nextManifest, null, 2), 'utf8')
-  renameSync(temporaryFile, targetFile)
+  const store = await kvRead<Record<string, AgentManifest>>(KV_KEY, {})
+  store[nextManifest.did] = nextManifest
+  await kvWrite(KV_KEY, store)
   return nextManifest
 }
 
-export function getAgentManifest(did: string): AgentManifest | null {
-  if (!existsSync(AGENT_MANIFEST_STORE_DIRECTORY)) {
-    return null
-  }
-
-  return readAgentManifestFile(getManifestStoreFilePath(did))
+export async function getAgentManifest(did: string): Promise<AgentManifest | null> {
+  const store = await kvRead<Record<string, AgentManifest>>(KV_KEY, {})
+  return store[did] ?? null
 }
 
-export function listAgentManifests(): AgentManifest[] {
-  if (!existsSync(AGENT_MANIFEST_STORE_DIRECTORY)) {
-    return []
-  }
-
-  return readdirSync(AGENT_MANIFEST_STORE_DIRECTORY)
-    .filter((fileName) => fileName.endsWith('.json'))
-    .map((fileName) => readAgentManifestFile(path.join(AGENT_MANIFEST_STORE_DIRECTORY, fileName)))
-    .filter((manifest): manifest is AgentManifest => Boolean(manifest))
+export async function listAgentManifests(): Promise<AgentManifest[]> {
+  const store = await kvRead<Record<string, AgentManifest>>(KV_KEY, {})
+  return Object.values(store).map((manifest) => toAgentManifest(manifest))
 }

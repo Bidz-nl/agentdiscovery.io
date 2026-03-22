@@ -1,26 +1,13 @@
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
 
-import { getDataRoot } from '@/lib/project-paths'
+import { kvRead, kvWrite } from '@/lib/kv-store'
 import type { AgentRunRecord } from '@/lib/agent-runtime'
 
 type AgentRunStoreFile = {
   runs: AgentRunRecord[]
 }
 
-const AGENT_RUN_STORE_DIRECTORY = getDataRoot()
-const AGENT_RUN_STORE_FILE = path.join(AGENT_RUN_STORE_DIRECTORY, 'adp-v2-agent-runs.json')
-
-function ensureAgentRunStore() {
-  if (!existsSync(AGENT_RUN_STORE_DIRECTORY)) {
-    mkdirSync(AGENT_RUN_STORE_DIRECTORY, { recursive: true })
-  }
-
-  if (!existsSync(AGENT_RUN_STORE_FILE)) {
-    writeFileSync(AGENT_RUN_STORE_FILE, JSON.stringify({ runs: [] }, null, 2), 'utf8')
-  }
-}
+const KV_KEY = 'adp:agent-runs'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -88,17 +75,15 @@ function toAgentRunRecord(value: unknown): AgentRunRecord | null {
   }
 }
 
-function readAgentRunStore(): AgentRunStoreFile {
-  if (!existsSync(AGENT_RUN_STORE_FILE)) {
+async function readAgentRunStore(): Promise<AgentRunStoreFile> {
+  const raw = await kvRead<AgentRunStoreFile | null>(KV_KEY, null)
+  if (!raw) {
     return { runs: [] }
   }
-
   try {
-    const raw = readFileSync(AGENT_RUN_STORE_FILE, 'utf8')
-    const parsed = JSON.parse(raw) as Partial<AgentRunStoreFile>
     return {
-      runs: Array.isArray(parsed.runs)
-        ? parsed.runs.map(toAgentRunRecord).filter((record): record is AgentRunRecord => Boolean(record))
+      runs: Array.isArray(raw.runs)
+        ? raw.runs.map(toAgentRunRecord).filter((record): record is AgentRunRecord => Boolean(record))
         : [],
     }
   } catch {
@@ -106,33 +91,30 @@ function readAgentRunStore(): AgentRunStoreFile {
   }
 }
 
-function writeAgentRunStore(store: AgentRunStoreFile) {
-  ensureAgentRunStore()
-  const temporaryFile = `${AGENT_RUN_STORE_FILE}.tmp`
-  writeFileSync(temporaryFile, JSON.stringify(store, null, 2), 'utf8')
-  renameSync(temporaryFile, AGENT_RUN_STORE_FILE)
+async function writeAgentRunStore(store: AgentRunStoreFile): Promise<void> {
+  await kvWrite(KV_KEY, store)
 }
 
-export function createAgentRunRecord(input: Omit<AgentRunRecord, 'id' | 'startedAt'>): AgentRunRecord {
-  const store = readAgentRunStore()
+export async function createAgentRunRecord(input: Omit<AgentRunRecord, 'id' | 'startedAt'>): Promise<AgentRunRecord> {
+  const store = await readAgentRunStore()
   const record: AgentRunRecord = {
     id: `run_${randomUUID().replace(/-/g, '')}`,
     ...input,
     startedAt: new Date().toISOString(),
   }
 
-  writeAgentRunStore({
+  await writeAgentRunStore({
     runs: [...store.runs, record],
   })
 
   return record
 }
 
-export function updateAgentRunRecord(
+export async function updateAgentRunRecord(
   id: string,
   updater: (record: AgentRunRecord) => AgentRunRecord
-): AgentRunRecord | null {
-  const store = readAgentRunStore()
+): Promise<AgentRunRecord | null> {
+  const store = await readAgentRunStore()
   const existing = store.runs.find((record) => record.id === id)
 
   if (!existing) {
@@ -141,19 +123,19 @@ export function updateAgentRunRecord(
 
   const updated = updater(existing)
 
-  writeAgentRunStore({
+  await writeAgentRunStore({
     runs: store.runs.map((record) => (record.id === id ? updated : record)),
   })
 
   return updated
 }
 
-export function listAgentRunRecords(agentId: number): AgentRunRecord[] {
-  return readAgentRunStore().runs
+export async function listAgentRunRecords(agentId: number): Promise<AgentRunRecord[]> {
+  return (await readAgentRunStore()).runs
     .filter((record) => record.agentId === agentId)
     .sort((left, right) => Date.parse(right.startedAt) - Date.parse(left.startedAt))
 }
 
-export function sumAgentRunEstimatedCostUsd(agentId: number): number {
-  return listAgentRunRecords(agentId).reduce((total, record) => total + (record.usage.estimatedCostUsd ?? 0), 0)
+export async function sumAgentRunEstimatedCostUsd(agentId: number): Promise<number> {
+  return (await listAgentRunRecords(agentId)).reduce((total, record) => total + (record.usage.estimatedCostUsd ?? 0), 0)
 }

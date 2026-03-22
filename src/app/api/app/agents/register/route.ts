@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
   }
 
   const normalizedName = sanitizeAgentName(body.name)
-  const nameError = validateAgentNamePolicy(normalizedName)
+  const nameError = await validateAgentNamePolicy(normalizedName)
   if (nameError) {
     return NextResponse.json(
       {
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
   const authorityBoundaries =
     body.authorityBoundaries && isRecord(body.authorityBoundaries) ? body.authorityBoundaries : {}
   const endpoints = body.endpoints && isRecord(body.endpoints) ? body.endpoints : {}
-  const registration = registerNativeAgent({
+  const registration = await registerNativeAgent({
     name: normalizedName,
     role,
     description: typeof body.description === 'string' ? body.description.trim() : undefined,
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
   const ownerServiceInput = toOwnerServiceRequest(body, role)
   const createdService =
     ownerServiceInput && (ownerServiceInput.title || ownerServiceInput.category || ownerServiceInput.description)
-      ? createOwnerServiceRecord(registration.agent.did, ownerServiceInput)
+      ? await createOwnerServiceRecord(registration.agent.did, ownerServiceInput)
       : null
 
   return NextResponse.json({

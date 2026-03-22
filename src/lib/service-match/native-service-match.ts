@@ -94,8 +94,8 @@ function compareCandidates(left: NativeServiceMatchCandidate, right: NativeServi
   return right.service.updatedAt.localeCompare(left.service.updatedAt)
 }
 
-export function findNativeServiceMatches(query: NormalizedServiceMatchQuery): NativeServiceMatchCandidate[] {
-  const allServices = listOwnerServiceRecords()
+export async function findNativeServiceMatches(query: NormalizedServiceMatchQuery): Promise<NativeServiceMatchCandidate[]> {
+  const allServices = await listOwnerServiceRecords()
   const publishedEligibleServices = allServices
     .filter((service) => !service.archivedAt)
     .filter((service) => Boolean(service.ownerAgentDid))
@@ -119,19 +119,21 @@ export function findNativeServiceMatches(query: NormalizedServiceMatchQuery): Na
     )
   })
 
-  const candidates = budgetFilteredServices.map((service) => {
-    const agent = getAgentRecordByDid(service.ownerAgentDid)
-    const candidate: NativeServiceMatchCandidate = {
-      service,
-      agent,
-      matchScore: 0,
-    }
+  const candidates = await Promise.all(
+    budgetFilteredServices.map(async (service) => {
+      const agent = await getAgentRecordByDid(service.ownerAgentDid)
+      const candidate: NativeServiceMatchCandidate = {
+        service,
+        agent,
+        matchScore: 0,
+      }
 
-    return {
-      ...candidate,
-      matchScore: computeMatchScore(candidate, query),
-    }
-  })
+      return {
+        ...candidate,
+        matchScore: computeMatchScore(candidate, query),
+      }
+    })
+  )
 
   const effectiveKeywords = query.requirements.keywords.filter(
     (kw) => !query.category || query.category.toLowerCase() === 'all' || kw !== query.category.toLowerCase()

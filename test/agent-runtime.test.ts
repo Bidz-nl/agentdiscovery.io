@@ -1,12 +1,6 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
-import os from 'node:os'
-import path from 'node:path'
 import test from 'node:test'
 
-const tempDataRoot = mkdtempSync(path.join(os.tmpdir(), 'adp-runtime-tests-'))
-
-process.env.ADP_DATA_ROOT = tempDataRoot
 process.env.ADP_RUNTIME_TEST_STUB = '1'
 process.env.AGENT_SECRET_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
 process.env.OPENAI_API_KEY = 'hosted-openai-key'
@@ -22,12 +16,7 @@ const {
   updateAgentRuntimePolicy,
 } = await import('../src/lib/agent-runtime-service.ts')
 
-function resetStores() {
-  rmSync(tempDataRoot, { recursive: true, force: true })
-  mkdirSync(tempDataRoot, { recursive: true })
-}
-
-function registerProvider(name: string) {
+async function registerProvider(name: string) {
   return registerNativeAgent({
     name,
     role: 'provider',
@@ -36,12 +25,8 @@ function registerProvider(name: string) {
   })
 }
 
-test.beforeEach(() => {
-  resetStores()
-})
-
 test('runtime provider connect flow derives ready hosted runtime state', async () => {
-  const { agent } = registerProvider('Runtime Connect Bot')
+  const { agent } = await registerProvider('Runtime Connect Bot')
 
   const result = await connectAgentRuntimeProvider(agent.did, { provider: 'openai' })
 
@@ -55,7 +40,7 @@ test('runtime provider connect flow derives ready hosted runtime state', async (
 })
 
 test('BYO credential validation flow stores encrypted secret and masked read model', async () => {
-  const { agent } = registerProvider('BYO Bot')
+  const { agent } = await registerProvider('BYO Bot')
 
   const result = await connectAgentRuntimeProvider(agent.did, {
     provider: 'anthropic',
@@ -63,7 +48,7 @@ test('BYO credential validation flow stores encrypted secret and masked read mod
     apiKey: 'byok-valid-key-123',
   })
 
-  const credentials = listAgentCredentialRecords(agent.id)
+  const credentials = await listAgentCredentialRecords(agent.id)
   const providerCredential = credentials.find((credential) => credential.kind === 'provider_api_key' && credential.status === 'active')
 
   assert.ok(providerCredential)
@@ -76,7 +61,7 @@ test('BYO credential validation flow stores encrypted secret and masked read mod
 })
 
 test('credential reconnect revokes older active provider credential', async () => {
-  const { agent } = registerProvider('Reconnect Bot')
+  const { agent } = await registerProvider('Reconnect Bot')
 
   await connectAgentRuntimeProvider(agent.did, {
     provider: 'openai',
@@ -90,7 +75,7 @@ test('credential reconnect revokes older active provider credential', async () =
     apiKey: 'byok-second-key',
   })
 
-  const credentials = listAgentCredentialRecords(agent.id).filter(
+  const credentials = (await listAgentCredentialRecords(agent.id)).filter(
     (credential) => credential.kind === 'provider_api_key' && credential.provider === 'openai'
   )
 
@@ -101,7 +86,7 @@ test('credential reconnect revokes older active provider credential', async () =
 })
 
 test('policy disable blocks sandbox runs via normalized runtime state', async () => {
-  const { agent } = registerProvider('Policy Bot')
+  const { agent } = await registerProvider('Policy Bot')
 
   await connectAgentRuntimeProvider(agent.did, { provider: 'openai' })
   await updateAgentRuntimePolicy(agent.did, { enabled: false })
@@ -120,15 +105,15 @@ test('policy disable blocks sandbox runs via normalized runtime state', async ()
 })
 
 test('sandbox run uses only owner-scoped safe read-only tool output', async () => {
-  const { agent } = registerProvider('Scoped Tool Bot')
-  const { agent: otherAgent } = registerProvider('Other Tool Bot')
+  const { agent } = await registerProvider('Scoped Tool Bot')
+  const { agent: otherAgent } = await registerProvider('Other Tool Bot')
 
-  createOwnerServiceRecord(agent.did, {
+  await createOwnerServiceRecord(agent.did, {
     title: 'Own service',
     category: 'copywriting',
     description: 'owned by active provider',
   })
-  createOwnerServiceRecord(otherAgent.did, {
+  await createOwnerServiceRecord(otherAgent.did, {
     title: 'Foreign service',
     category: 'plumbing',
     description: 'should not leak',
@@ -165,7 +150,7 @@ test('sandbox run uses only owner-scoped safe read-only tool output', async () =
 })
 
 test('spend guard scaffold evaluates stored run totals before sandbox execution', async () => {
-  const { agent } = registerProvider('Spend Guard Bot')
+  const { agent } = await registerProvider('Spend Guard Bot')
 
   await connectAgentRuntimeProvider(agent.did, { provider: 'openai' })
   await updateAgentRuntimePolicy(agent.did, { spendCapUsd: 0.005 })

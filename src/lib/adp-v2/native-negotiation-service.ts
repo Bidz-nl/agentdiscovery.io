@@ -36,8 +36,8 @@ function createNegotiationError(
   }
 }
 
-function getPublishedServiceForProvider(providerDid: string, category?: string) {
-  return listOwnerServiceRecords()
+async function getPublishedServiceForProvider(providerDid: string, category?: string) {
+  return (await listOwnerServiceRecords())
     .filter((service) => !service.archivedAt)
     .filter((service) => service.ownerAgentDid === providerDid)
     .filter((service) => Boolean(service.publishedCapabilityKey && service.latestPublishedSnapshot))
@@ -51,15 +51,15 @@ function getPublishedServiceForProvider(providerDid: string, category?: string) 
     }) ?? null
 }
 
-function toNegotiationCapabilityId(payload: Record<string, unknown>, providerDid: string, category?: string) {
+async function toNegotiationCapabilityId(payload: Record<string, unknown>, providerDid: string, category?: string) {
   if (typeof payload.targetCapabilityId === 'number' && Number.isFinite(payload.targetCapabilityId)) {
-    const targetService = findPublishedServiceByCapabilityId(payload.targetCapabilityId)
+    const targetService = await findPublishedServiceByCapabilityId(payload.targetCapabilityId)
     if (targetService && targetService.ownerAgentDid === providerDid) {
       return payload.targetCapabilityId
     }
   }
 
-  const fallbackService = getPublishedServiceForProvider(providerDid, category)
+  const fallbackService = await getPublishedServiceForProvider(providerDid, category)
   return fallbackService ? toPublishedServiceCapabilityId(fallbackService.id) : null
 }
 
@@ -84,7 +84,7 @@ function toPriceAndMessage(payload: Record<string, unknown>, intent: string) {
   }
 }
 
-export function createNativeNegotiationFromNegotiatePayload(payload: Record<string, unknown>) {
+export async function createNativeNegotiationFromNegotiatePayload(payload: Record<string, unknown>) {
   if (typeof payload.session_id !== 'string' || payload.session_id.trim().length === 0) {
     return {
       ok: false as const,
@@ -92,7 +92,7 @@ export function createNativeNegotiationFromNegotiatePayload(payload: Record<stri
     }
   }
 
-  const sessionCheck = requireHandshakeSession(payload.session_id)
+  const sessionCheck = await requireHandshakeSession(payload.session_id)
   if (!sessionCheck.ok) {
     return sessionCheck
   }
@@ -105,7 +105,7 @@ export function createNativeNegotiationFromNegotiatePayload(payload: Record<stri
     }
   }
 
-  const providerValidation = validateNegotiateProvider(validation.data)
+  const providerValidation = await validateNegotiateProvider(validation.data)
   if (!providerValidation.success) {
     return {
       ok: false as const,
@@ -118,7 +118,7 @@ export function createNativeNegotiationFromNegotiatePayload(payload: Record<stri
     }
   }
 
-  const capabilityId = toNegotiationCapabilityId(payload, validation.data.provider_did, validation.data.service_category)
+  const capabilityId = await toNegotiationCapabilityId(payload, validation.data.provider_did, validation.data.service_category)
   if (!capabilityId) {
     return {
       ok: false as const,
@@ -128,7 +128,7 @@ export function createNativeNegotiationFromNegotiatePayload(payload: Record<stri
 
   const { price, message } = toPriceAndMessage(payload, validation.data.intent)
   const timestamp = new Date().toISOString()
-  const negotiation = createNativeNegotiationRecord(
+  const negotiation = await createNativeNegotiationRecord(
     {
       sessionId: sessionCheck.session.session_id,
       status: 'awaiting_provider',
@@ -169,7 +169,7 @@ export function createNativeNegotiationFromNegotiatePayload(payload: Record<stri
   }
 }
 
-export function createNativeNegotiationFromAppEngagePayload(payload: Record<string, unknown>) {
+export async function createNativeNegotiationFromAppEngagePayload(payload: Record<string, unknown>) {
   const providerDid = typeof payload.agentDid === 'string' ? payload.agentDid.trim() : ''
   const serviceCategory = typeof payload.category === 'string' && payload.category.trim().length > 0
     ? payload.category.trim()
@@ -198,7 +198,7 @@ export function createNativeNegotiationFromAppEngagePayload(payload: Record<stri
   })
 }
 
-export function getNativeNegotiationDetail(negotiationId: number) {
+export async function getNativeNegotiationDetail(negotiationId: number) {
   return getNativeNegotiationRecord(negotiationId)
 }
 
@@ -256,14 +256,14 @@ function createTranscriptEntry(input: {
   }
 }
 
-export function applyNativeNegotiationAction(
+export async function applyNativeNegotiationAction(
   negotiationId: number,
   actorDid: string,
   action: 'accept' | 'reject' | 'counter',
   allowedActorRole: 'initiator' | 'responder',
   payload: Record<string, unknown>
 ) {
-  const negotiation = getNativeNegotiationRecord(negotiationId)
+  const negotiation = await getNativeNegotiationRecord(negotiationId)
   if (!negotiation) {
     return {
       ok: false as const,
@@ -312,7 +312,7 @@ export function applyNativeNegotiationAction(
       ? payload.deliveryPayload.trim()
       : undefined
 
-  const updated = updateNativeNegotiationRecord(
+  const updated = await updateNativeNegotiationRecord(
     negotiationId,
     (current) => ({
       ...current,
@@ -365,29 +365,34 @@ export function applyNativeNegotiationAction(
   }
 }
 
-export function getNativeProviderInboxReadModel(providerDid: string) {
-  const inboxItems = listNativeNegotiationRecords()
-    .filter((negotiation) => negotiation.responderDid === providerDid)
-    .map((negotiation) => {
-      const service = findPublishedServiceByCapabilityId(negotiation.capabilityId)
-      const initiator = getAgentRecordByDid(negotiation.initiatorDid)
-      const lifecycle = getNegotiationLifecycle(negotiation)
+export async function getNativeProviderInboxReadModel(providerDid: string) {
+  const negotiations = await listNativeNegotiationRecords()
+  const inboxItems = await Promise.all(
+    negotiations
+      .filter((negotiation) => negotiation.responderDid === providerDid)
+      .map(async (negotiation) => {
+        const [service, initiator] = await Promise.all([
+          findPublishedServiceByCapabilityId(negotiation.capabilityId),
+          getAgentRecordByDid(negotiation.initiatorDid),
+        ])
+        const lifecycle = getNegotiationLifecycle(negotiation)
 
-      return {
-        negotiation,
-        lifecycle,
-        capability: {
-          id: negotiation.capabilityId,
-          title: service?.title ?? '',
-          category: service?.latestPublishedSnapshot?.category ?? service?.category ?? '',
-        },
-        initiator: {
-          did: negotiation.initiatorDid,
-          name: initiator?.name ?? negotiation.initiatorDid,
-          reputationScore: '0',
-        },
-      }
-    })
+        return {
+          negotiation,
+          lifecycle,
+          capability: {
+            id: negotiation.capabilityId,
+            title: service?.title ?? '',
+            category: service?.latestPublishedSnapshot?.category ?? service?.category ?? '',
+          },
+          initiator: {
+            did: negotiation.initiatorDid,
+            name: initiator?.name ?? negotiation.initiatorDid,
+            reputationScore: '0',
+          },
+        }
+      })
+  )
 
   return {
     inbox: inboxItems.filter((item) => item.lifecycle.canResponderNegotiate),
@@ -399,14 +404,14 @@ export function getNativeProviderInboxReadModel(providerDid: string) {
   }
 }
 
-export function getNegotiationResponderDid(negotiationId: number) {
-  return getNativeNegotiationRecord(negotiationId)?.responderDid ?? null
+export async function getNegotiationResponderDid(negotiationId: number) {
+  return (await getNativeNegotiationRecord(negotiationId))?.responderDid ?? null
 }
 
-export function getNegotiationInitiatorDid(negotiationId: number) {
-  return getNativeNegotiationRecord(negotiationId)?.initiatorDid ?? null
+export async function getNegotiationInitiatorDid(negotiationId: number) {
+  return (await getNativeNegotiationRecord(negotiationId))?.initiatorDid ?? null
 }
 
-export function validateNativeNegotiationProvider(negotiate: NegotiatePayload) {
+export async function validateNativeNegotiationProvider(negotiate: NegotiatePayload) {
   return validateNegotiateProvider(negotiate)
 }

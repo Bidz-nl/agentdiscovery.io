@@ -1,30 +1,14 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
-import os from 'node:os'
-import path from 'node:path'
 import test from 'node:test'
 import { NextRequest } from 'next/server'
-
-const tempDataRoot = mkdtempSync(path.join(os.tmpdir(), 'adp-restore-route-tests-'))
-
-process.env.ADP_DATA_ROOT = tempDataRoot
 
 const restoreRoute = await import('../src/app/api/app/restore/route.ts')
 const { registerNativeAgent } = await import('../src/lib/adp-v2/agent-registration-service.ts')
 const { hashAgentApiKey } = await import('../src/lib/adp-v2/agent-api-key.ts')
 const { getAgentCredentialBySecretHash, revokeAgentCredential } = await import('../src/lib/adp-v2/agent-credential-repository.ts')
 
-function resetStores() {
-  rmSync(tempDataRoot, { recursive: true, force: true })
-  mkdirSync(tempDataRoot, { recursive: true })
-}
-
-test.beforeEach(() => {
-  resetStores()
-})
-
 test('restore accepts a pasted provider API key without pre-existing session and activates provider scope', async () => {
-  const registration = registerNativeAgent({
+  const registration = await registerNativeAgent({
     name: 'Restore Route Provider',
     role: 'provider',
     supported_protocol_versions: ['2.0'],
@@ -48,7 +32,7 @@ test('restore accepts a pasted provider API key without pre-existing session and
 })
 
 test('restore accepts a pasted consumer API key without requiring provider scope', async () => {
-  const registration = registerNativeAgent({
+  const registration = await registerNativeAgent({
     name: 'Restore Route Consumer',
     role: 'consumer',
     supported_protocol_versions: ['2.0'],
@@ -85,16 +69,16 @@ test('restore returns a clear invalid-environment error for unknown API keys', a
 })
 
 test('restore returns a clear revoked-key error', async () => {
-  const registration = registerNativeAgent({
+  const registration = await registerNativeAgent({
     name: 'Restore Revoked Provider',
     role: 'provider',
     supported_protocol_versions: ['2.0'],
     description: 'Revoked restore route test',
   })
 
-  const credential = getAgentCredentialBySecretHash(hashAgentApiKey(registration.apiKey))
+  const credential = await getAgentCredentialBySecretHash(hashAgentApiKey(registration.apiKey))
   assert.ok(credential)
-  revokeAgentCredential(credential.id)
+  await revokeAgentCredential(credential.id)
 
   const response = await restoreRoute.POST(
     new NextRequest('http://localhost/api/app/restore', {

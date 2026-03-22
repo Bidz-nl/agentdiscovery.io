@@ -83,9 +83,11 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, '')
 }
 
-function getProviderDefaults(providerDid: string): Omit<LocalFoodProviderRecord, 'id' | 'createdAt' | 'updatedAt'> {
-  const agent = getAgentRecordByDid(providerDid)
-  const profile = getPublicAgentProfileProjection(providerDid)
+async function getProviderDefaults(providerDid: string): Promise<Omit<LocalFoodProviderRecord, 'id' | 'createdAt' | 'updatedAt'>> {
+  const [agent, profile] = await Promise.all([
+    getAgentRecordByDid(providerDid),
+    getPublicAgentProfileProjection(providerDid),
+  ])
   const businessName = profile?.displayName || agent?.name || 'Local pizza partner'
 
   return {
@@ -94,7 +96,7 @@ function getProviderDefaults(providerDid: string): Omit<LocalFoodProviderRecord,
     status: 'draft',
     businessName,
     slug: slugify(businessName) || `pizza-${randomUUID().slice(0, 8)}`,
-    summary: profile?.purpose || agent?.description || 'Ambachtelijke pizza’s voor snelle bezorging of afhalen in de buurt.',
+    summary: profile?.purpose || agent?.description || `Ambachtelijke pizza\u2019s voor snelle bezorging of afhalen in de buurt.`,
     cuisineLabel: 'Pizza',
     phone: '',
     locationLabel: '',
@@ -112,8 +114,11 @@ function getProviderDefaults(providerDid: string): Omit<LocalFoodProviderRecord,
   }
 }
 
-function ensureProviderExists(providerDid: string) {
-  return getLocalFoodProviderRecord(providerDid) ?? createLocalFoodProviderRecord(getProviderDefaults(providerDid))
+async function ensureProviderExists(providerDid: string) {
+  const existing = await getLocalFoodProviderRecord(providerDid)
+  if (existing) return existing
+  const defaults = await getProviderDefaults(providerDid)
+  return createLocalFoodProviderRecord(defaults)
 }
 
 function isMeaningfulText(value: string) {
@@ -149,9 +154,9 @@ function buildProviderSnapshot(current: LocalFoodProviderRecord, patch: LocalFoo
   }
 }
 
-export function getProviderLaunchChecklist(providerDid: string) {
-  const provider = ensureProviderExists(providerDid)
-  const menuItems = listLocalFoodMenuItemsByProvider(providerDid)
+export async function getProviderLaunchChecklist(providerDid: string) {
+  const provider = await ensureProviderExists(providerDid)
+  const menuItems = await listLocalFoodMenuItemsByProvider(providerDid)
   const hasBusinessBasics =
     isMeaningfulText(provider.businessName) &&
     isMeaningfulText(provider.summary) &&
@@ -178,8 +183,8 @@ export function getProviderLaunchChecklist(providerDid: string) {
   }
 }
 
-function validateProviderActivation(nextProvider: LocalFoodProviderRecord, providerDid: string) {
-  const checklist = getProviderLaunchChecklist(providerDid)
+async function validateProviderActivation(nextProvider: LocalFoodProviderRecord, providerDid: string) {
+  const checklist = await getProviderLaunchChecklist(providerDid)
   const hasBusinessBasics =
     isMeaningfulText(nextProvider.businessName) &&
     isMeaningfulText(nextProvider.summary) &&
@@ -263,19 +268,22 @@ function toOrderReadModel(order: LocalFoodOrderRecord) {
   }
 }
 
-function ensureProviderIsPublic(provider: LocalFoodProviderRecord) {
+async function ensureProviderIsPublic(provider: LocalFoodProviderRecord) {
   if (provider.status !== 'active') {
     return false
   }
 
-  return listLocalFoodMenuItemsByProvider(provider.providerDid).some((item) => item.available)
+  const items = await listLocalFoodMenuItemsByProvider(provider.providerDid)
+  return items.some((item) => item.available)
 }
 
-export function getLocalFoodProviderAdminReadModel(providerDid: string) {
-  const provider = ensureProviderExists(providerDid)
-  const menuItems = listLocalFoodMenuItemsByProvider(providerDid)
-  const orders = listLocalFoodOrdersByProvider(providerDid)
-  const launchChecklist = getProviderLaunchChecklist(providerDid)
+export async function getLocalFoodProviderAdminReadModel(providerDid: string) {
+  const provider = await ensureProviderExists(providerDid)
+  const [menuItems, orders, launchChecklist] = await Promise.all([
+    listLocalFoodMenuItemsByProvider(providerDid),
+    listLocalFoodOrdersByProvider(providerDid),
+    getProviderLaunchChecklist(providerDid),
+  ])
 
   return {
     provider,
@@ -290,25 +298,25 @@ export function getLocalFoodProviderAdminReadModel(providerDid: string) {
   }
 }
 
-export function updateLocalFoodProviderByDid(providerDid: string, patch: LocalFoodProviderPatch) {
-  const current = ensureProviderExists(providerDid)
+export async function updateLocalFoodProviderByDid(providerDid: string, patch: LocalFoodProviderPatch) {
+  const current = await ensureProviderExists(providerDid)
   const nextProvider = buildProviderSnapshot(current, patch)
 
   if (nextProvider.status === 'active') {
-    validateProviderActivation(nextProvider, providerDid)
+    await validateProviderActivation(nextProvider, providerDid)
   }
 
   return updateLocalFoodProviderRecord(providerDid, patch)
 }
 
-export function createLocalFoodManualMenuItem(providerDid: string, input: CreateLocalFoodMenuItemInput) {
-  ensureProviderExists(providerDid)
+export async function createLocalFoodManualMenuItem(providerDid: string, input: CreateLocalFoodMenuItemInput) {
+  await ensureProviderExists(providerDid)
   validateMenuItemInput(input)
   return createLocalFoodMenuItem(providerDid, input)
 }
 
-export function importLocalFoodMenuCsv(providerDid: string, csvText: string) {
-  ensureProviderExists(providerDid)
+export async function importLocalFoodMenuCsv(providerDid: string, csvText: string) {
+  await ensureProviderExists(providerDid)
   const parsedItems = parseLocalFoodMenuCsv(csvText)
 
   if (parsedItems.length === 0) {
@@ -323,9 +331,9 @@ export function importLocalFoodMenuCsv(providerDid: string, csvText: string) {
   return createManyLocalFoodMenuItems(providerDid, parsedItems)
 }
 
-export function updateLocalFoodMenuItemForProvider(providerDid: string, itemId: string, patch: UpdateLocalFoodMenuItemInput) {
-  ensureProviderExists(providerDid)
-  const item = getLocalFoodMenuItem(itemId)
+export async function updateLocalFoodMenuItemForProvider(providerDid: string, itemId: string, patch: UpdateLocalFoodMenuItemInput) {
+  await ensureProviderExists(providerDid)
+  const item = await getLocalFoodMenuItem(itemId)
   if (!item || item.providerDid !== providerDid) {
     return null
   }
@@ -334,18 +342,18 @@ export function updateLocalFoodMenuItemForProvider(providerDid: string, itemId: 
   return updateLocalFoodMenuItem(itemId, patch)
 }
 
-export function seedLocalFoodDemoForProvider(providerDid: string) {
-  const provider = ensureProviderExists(providerDid)
-  const existingMenu = listLocalFoodMenuItemsByProvider(providerDid)
+export async function seedLocalFoodDemoForProvider(providerDid: string) {
+  const provider = await ensureProviderExists(providerDid)
+  const existingMenu = await listLocalFoodMenuItemsByProvider(providerDid)
 
   if (existingMenu.length === 0) {
-    createManyLocalFoodMenuItems(providerDid, DEMO_MENU_ITEMS)
+    await createManyLocalFoodMenuItems(providerDid, DEMO_MENU_ITEMS)
   }
 
   return updateLocalFoodProviderByDid(providerDid, {
     status: 'active',
     businessName: provider.businessName || 'Demo Pizza West',
-    summary: provider.summary || 'Verse pizza’s uit de buurt, klaar voor snelle demo-bestellingen.',
+    summary: provider.summary || `Verse pizza\u2019s uit de buurt, klaar voor snelle demo-bestellingen.`,
     phone: provider.phone || '+31 20 555 0101',
     locationLabel: provider.locationLabel || 'Amsterdam West',
     fulfilmentModes: provider.fulfilmentModes.length > 0 ? provider.fulfilmentModes : ['delivery', 'pickup'],
@@ -359,14 +367,15 @@ export function seedLocalFoodDemoForProvider(providerDid: string) {
   })
 }
 
-export function listIncomingLocalFoodOrders(providerDid: string) {
-  ensureProviderExists(providerDid)
-  return listLocalFoodOrdersByProvider(providerDid).map(toOrderReadModel)
+export async function listIncomingLocalFoodOrders(providerDid: string) {
+  await ensureProviderExists(providerDid)
+  const orders = await listLocalFoodOrdersByProvider(providerDid)
+  return orders.map(toOrderReadModel)
 }
 
-export function updateLocalFoodOrderStatusForProvider(providerDid: string, orderId: string, patch: LocalFoodOrderStatusPatch) {
-  ensureProviderExists(providerDid)
-  const order = getLocalFoodOrder(orderId)
+export async function updateLocalFoodOrderStatusForProvider(providerDid: string, orderId: string, patch: LocalFoodOrderStatusPatch) {
+  await ensureProviderExists(providerDid)
+  const order = await getLocalFoodOrder(orderId)
   if (!order || order.providerDid !== providerDid) {
     return null
   }
@@ -394,14 +403,28 @@ export function updateLocalFoodOrderStatusForProvider(providerDid: string, order
   }))
 }
 
-export function listLocalFoodDiscoverableProviders(postcode: string) {
-  return listLocalFoodProviderRecords()
-    .filter((provider) => ensureProviderIsPublic(provider))
+export async function listLocalFoodDiscoverableProviders(postcode: string) {
+  const allProviders = await listLocalFoodProviderRecords()
+  const publicProviderResults = await Promise.all(
+    allProviders.map(async (provider) => ({
+      provider,
+      isPublic: await ensureProviderIsPublic(provider),
+    }))
+  )
+
+  const filtered = publicProviderResults
+    .filter(({ isPublic }) => isPublic)
+    .map(({ provider }) => provider)
     .filter((provider) => postcodeMatchesPrefixes(postcode, provider.serviceArea.postcodePrefixes))
-    .map((provider) => {
-      const agentProfile = getPublicAgentProfileProjection(provider.providerDid)
-      const menuItems = listLocalFoodMenuItemsByProvider(provider.providerDid).filter((item) => item.available)
-      const startingPriceCents = menuItems.reduce<number | null>((minPrice, item) => {
+
+  const enriched = await Promise.all(
+    filtered.map(async (provider) => {
+      const [agentProfile, menuItems] = await Promise.all([
+        getPublicAgentProfileProjection(provider.providerDid),
+        listLocalFoodMenuItemsByProvider(provider.providerDid),
+      ])
+      const availableItems = menuItems.filter((item) => item.available)
+      const startingPriceCents = availableItems.reduce<number | null>((minPrice, item) => {
         if (minPrice === null) {
           return item.priceCents
         }
@@ -417,29 +440,32 @@ export function listLocalFoodDiscoverableProviders(postcode: string) {
         coverageLabel: provider.serviceArea.coverageLabel,
         fulfilmentModes: provider.fulfilmentModes,
         startingPriceCents,
-        availableMenuItemCount: menuItems.length,
+        availableMenuItemCount: availableItems.length,
         specialties: agentProfile?.specialties ?? [],
       }
     })
-    .sort((left, right) => {
-      if ((right.availableMenuItemCount ?? 0) !== (left.availableMenuItemCount ?? 0)) {
-        return right.availableMenuItemCount - left.availableMenuItemCount
-      }
+  )
 
-      return left.businessName.localeCompare(right.businessName)
-    })
+  return enriched.sort((left, right) => {
+    if ((right.availableMenuItemCount ?? 0) !== (left.availableMenuItemCount ?? 0)) {
+      return right.availableMenuItemCount - left.availableMenuItemCount
+    }
+
+    return left.businessName.localeCompare(right.businessName)
+  })
 }
 
-export function getLocalFoodPublicProvider(providerDid: string) {
-  const provider = getLocalFoodProviderRecord(providerDid)
-  if (!provider || !ensureProviderIsPublic(provider)) {
+export async function getLocalFoodPublicProvider(providerDid: string) {
+  const provider = await getLocalFoodProviderRecord(providerDid)
+  if (!provider || !(await ensureProviderIsPublic(provider))) {
     return null
   }
 
-  const agentProfile = getPublicAgentProfileProjection(providerDid)
-  const menuItems = listLocalFoodMenuItemsByProvider(providerDid)
-    .filter((item) => item.available)
-    .map(toPublicMenuItem)
+  const [agentProfile, allMenuItems] = await Promise.all([
+    getPublicAgentProfileProjection(providerDid),
+    listLocalFoodMenuItemsByProvider(providerDid),
+  ])
+  const menuItems = allMenuItems.filter((item) => item.available).map(toPublicMenuItem)
 
   return {
     provider: {
@@ -458,9 +484,9 @@ export function getLocalFoodPublicProvider(providerDid: string) {
   }
 }
 
-export function createLocalFoodOrder(input: CreateLocalFoodOrderInput) {
-  const provider = getLocalFoodProviderRecord(input.providerDid)
-  if (!provider || !ensureProviderIsPublic(provider)) {
+export async function createLocalFoodOrder(input: CreateLocalFoodOrderInput) {
+  const provider = await getLocalFoodProviderRecord(input.providerDid)
+  if (!provider || !(await ensureProviderIsPublic(provider))) {
     throw new LocalFoodServiceError(
       'LOCAL_FOOD_PROVIDER_UNAVAILABLE',
       'This pizza provider is not live for ordering right now.',
@@ -504,8 +530,9 @@ export function createLocalFoodOrder(input: CreateLocalFoodOrderInput) {
     )
   }
 
+  const allMenuItems = await listLocalFoodMenuItemsByProvider(provider.providerDid)
   const menuById = new Map(
-    listLocalFoodMenuItemsByProvider(provider.providerDid)
+    allMenuItems
       .filter((item) => item.available)
       .map((item) => [item.id, item])
   )
@@ -539,7 +566,7 @@ export function createLocalFoodOrder(input: CreateLocalFoodOrderInput) {
   const subtotalCents = orderItems.reduce((sum, item) => sum + item.lineTotalCents, 0)
   const payment = createLocalFoodPaymentPlaceholder(`${provider.providerDid}-${Date.now()}`, subtotalCents)
 
-  const order = createLocalFoodOrderRecord({
+  const order = await createLocalFoodOrderRecord({
     providerDid: provider.providerDid,
     customerDid: input.customerDid ?? null,
     customerName: input.customerName.trim(),

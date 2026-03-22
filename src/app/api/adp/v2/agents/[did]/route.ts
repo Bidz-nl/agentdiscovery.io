@@ -9,7 +9,7 @@ export async function GET(
   context: { params: Promise<{ did: string }> }
 ) {
   const { did } = await context.params
-  const agent = getAgentRecordByDid(did)
+  const agent = await getAgentRecordByDid(did)
 
   if (!agent) {
     return jsonAdpV2Error(404, 'AGENT_NOT_FOUND', 'ADP v2 agent not found', { did })

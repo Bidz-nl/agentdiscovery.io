@@ -21,24 +21,24 @@ function getCredentialFingerprintFromApiKey(rawApiKey: string) {
   return normalizedApiKey ? `credential-${hashAgentApiKey(normalizedApiKey).slice(0, 32)}` : null
 }
 
-function createOwnerPrivateAuthContext(
+async function createOwnerPrivateAuthContext(
   verified: { agent: AgentRecord; credential: AgentCredentialRecord },
   credentialFingerprint: string | null
-): OwnerPrivateAuthContext | null {
+): Promise<OwnerPrivateAuthContext | null> {
   if (!credentialFingerprint) {
     return null
   }
 
   const providerDids = [verified.agent.did]
   const externalSubject = `native-agent:${verified.agent.id}`
-  const principal = getOrCreateOwnerPrincipal(externalSubject)
-  const existingSession = getOwnerAppSessionByCredentialFingerprint(credentialFingerprint)
+  const principal = await getOrCreateOwnerPrincipal(externalSubject)
+  const existingSession = await getOwnerAppSessionByCredentialFingerprint(credentialFingerprint)
 
-  const existingMemberships = listOwnerProviderMemberships(principal.ownerId)
+  const existingMemberships = await listOwnerProviderMemberships(principal.ownerId)
   const memberships =
     existingMemberships.length > 0
       ? existingMemberships
-      : createOwnerProviderMemberships(principal.ownerId, providerDids)
+      : await createOwnerProviderMemberships(principal.ownerId, providerDids)
 
   const authorizedProviderDids = Array.from(
     new Set(memberships.map((membership) => membership.providerDid).filter(Boolean))
@@ -48,7 +48,7 @@ function createOwnerPrivateAuthContext(
     return null
   }
 
-  const session = upsertOwnerAppSession({
+  const session = await upsertOwnerAppSession({
     ownerId: principal.ownerId,
     credentialFingerprint,
     authorizedProviderDids,
@@ -65,7 +65,7 @@ function createOwnerPrivateAuthContext(
 }
 
 export async function resolveOwnerPrivateAuthContext(request: NextRequest): Promise<OwnerPrivateAuthContext | null> {
-  const verified = verifyBearerAgentApiKey(request.headers)
+  const verified = await verifyBearerAgentApiKey(request.headers)
   if (!verified) {
     return null
   }
@@ -73,8 +73,8 @@ export async function resolveOwnerPrivateAuthContext(request: NextRequest): Prom
   return createOwnerPrivateAuthContext(verified, getCredentialFingerprint(request))
 }
 
-export function resolveOwnerPrivateAuthContextFromApiKey(rawApiKey: string): OwnerPrivateAuthContext | null {
-  const verified = verifyRawAgentApiKey(rawApiKey)
+export async function resolveOwnerPrivateAuthContextFromApiKey(rawApiKey: string): Promise<OwnerPrivateAuthContext | null> {
+  const verified = await verifyRawAgentApiKey(rawApiKey)
   if (!verified) {
     return null
   }

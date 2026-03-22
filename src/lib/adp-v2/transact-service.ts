@@ -27,8 +27,8 @@ function createTransactionId(): string {
   return `tx_${randomUUID().replace(/-/g, '')}`
 }
 
-export function createTransaction(sessionId: string, transact: TransactPayload): CreateTransactionResult {
-  const provider = getAgentRecordByDid(transact.provider_did)
+export async function createTransaction(sessionId: string, transact: TransactPayload): Promise<CreateTransactionResult> {
+  const provider = await getAgentRecordByDid(transact.provider_did)
 
   if (!provider) {
     return {

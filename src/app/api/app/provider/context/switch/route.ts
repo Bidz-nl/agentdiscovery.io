@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
   }
 
   const input = body as SwitchActiveProviderRequest
-  const nextSession = setOwnerAppSessionActiveProvider(ownerSession.sessionId, input.activeProviderDid)
+  const nextSession = await setOwnerAppSessionActiveProvider(ownerSession.sessionId, input.activeProviderDid)
 
   if (!nextSession) {
     return NextResponse.json(

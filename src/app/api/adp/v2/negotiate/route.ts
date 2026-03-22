@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     return jsonAdpV2Error(400, 'INVALID_NEGOTIATE_REQUEST', 'Negotiate request body must be a JSON object')
   }
 
-  const result = createNativeNegotiationFromNegotiatePayload(body as Record<string, unknown>)
+  const result = await createNativeNegotiationFromNegotiatePayload(body as Record<string, unknown>)
 
   if (!result.ok) {
     return jsonAdpV2Error(
