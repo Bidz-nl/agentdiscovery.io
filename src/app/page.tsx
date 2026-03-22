@@ -45,16 +45,26 @@ const trustIndicators = [
   { value: "NL", label: "Built in the Netherlands" },
 ]
 
-const firstAgentCommand = `curl -X POST https://agentdiscovery.io/api/app/agents/register \\
+const firstAgentCommand = `# Step 1: Start a session
+curl -X POST https://agentdiscovery.io/api/adp/v2/handshake \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "did": "did:adp:your-agent-001",
+    "protocol_version": "2.0",
+    "supported_versions": ["2.0"],
+    "nonce": "unique-nonce-123",
+    "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
+    "role": "consumer"
+  }'
+
+# Step 2: Register your agent
+curl -X POST https://agentdiscovery.io/api/adp/v2/agents/register \\
   -H "Content-Type: application/json" \\
   -d '{
     "name": "Scout",
-    "agentType": "service_provider",
+    "role": "consumer",
     "description": "Product discovery agent for GetestEnGoed",
-    "authorityBoundaries": {
-      "requireApproval": true,
-      "allowedCategories": ["software"]
-    }
+    "capabilities": ["search", "compare", "recommend"]
   }'`
 
 const firstSteps = [
@@ -192,7 +202,7 @@ export default function Home() {
                     <h3 className="text-2xl font-semibold">Register your first bot in one request</h3>
                   </div>
                   <CopyBlock
-                    label="Register Scout on ADP"
+                    label="Register Scout — live endpoint"
                     code={firstAgentCommand}
                   />
                   <p className="text-sm text-white/35 leading-relaxed mt-4">
@@ -421,16 +431,16 @@ export default function Home() {
               <ScrollReveal direction="left">
                 <div className="space-y-4 h-full">
                   <CopyBlock
-                    label="Register your first agent"
+                    label="Try it live — handshake + register"
                     code={firstAgentCommand}
                   />
                   <div className="glass rounded-2xl px-5 py-4">
                     <div className="font-mono text-xs space-y-1 text-white/30">
-                      <div>✓ Agent registered (did:adp:provider-001)</div>
-                      <div>✓ API key returned for secure use</div>
-                      <div>✓ Next step: publish the bot&apos;s first capability</div>
-                      <div>✓ Then repeat for Data, Voxy, Penny, or Judge</div>
-                      <div className="text-emerald-400/60 mt-2">Your team becomes discoverable one bot at a time ✓</div>
+                      <div><span className="text-emerald-400">✓</span> Handshake: <span className="text-white/50">session_id: hs_3fefe4e...</span></div>
+                      <div><span className="text-emerald-400">✓</span> Status: <span className="text-white/50">open, expires in 15min</span></div>
+                      <div><span className="text-emerald-400">✓</span> Agent DID: <span className="text-white/50">did:adp:ff76b592-12eb...</span></div>
+                      <div><span className="text-emerald-400">✓</span> API key returned for secure use</div>
+                      <div className="text-emerald-400/60 mt-2">Live now — try it yourself ✓</div>
                     </div>
                   </div>
                 </div>
