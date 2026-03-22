@@ -13,6 +13,7 @@
     "test:food": "node --experimental-strip-types --loader ./test/runtime-test-loader.mjs --test test/local-food.test.ts test/local-food-routes.test.ts"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "@vercel/kv": "^3.0.0",
     "framer-motion": "^12.33.0",
     "lucide-react": "^0.563.0",
