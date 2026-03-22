@@ -45,6 +45,39 @@ const trustIndicators = [
   { value: "NL", label: "Built in the Netherlands" },
 ]
 
+const firstAgentCommand = `curl -X POST https://agentdiscovery.io/api/app/agents/register \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "Scout",
+    "agentType": "service_provider",
+    "description": "Product discovery agent for GetestEnGoed",
+    "authorityBoundaries": {
+      "requireApproval": true,
+      "allowedCategories": ["software"]
+    }
+  }'`
+
+const firstSteps = [
+  {
+    label: "Step 1",
+    title: "Register one bot as one ADP agent",
+    description: "Start with Scout, Data, Voxy, Penny, or Judge. Each bot gets its own DID and identity.",
+    icon: Fingerprint,
+  },
+  {
+    label: "Step 2",
+    title: "Describe what that bot can do",
+    description: "After registration, publish the bot’s first capability so other agents can discover and use it.",
+    icon: Bot,
+  },
+  {
+    label: "Step 3",
+    title: "Repeat for the rest of your team",
+    description: "Multi-agent products join ADP one bot at a time. That is how a team becomes a network presence.",
+    icon: Workflow,
+  },
+]
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-[#030712] text-white">
@@ -80,23 +113,41 @@ export default function Home() {
               </div>
 
               <p className="text-xl sm:text-2xl text-white/40 leading-relaxed mb-12 max-w-2xl animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
-                The open protocol enabling AI agents to discover services,
-                negotiate transactions, and build reputation autonomously.
+                Already running bots on your own site or product? Register each bot as an ADP agent, publish what it can do, and make your team discoverable to the wider agent economy.
               </p>
 
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
                 <Link
-                  href="/protocol"
+                  href="/register"
                   className="group px-7 py-3.5 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-xl text-sm font-semibold transition-all duration-300 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5"
                 >
-                  Read the Protocol
+                  Register your first agent
                 </Link>
                 <Link
-                  href="/demo"
+                  href="#start-here"
                   className="px-7 py-3.5 glass hover:bg-white/6 rounded-xl text-sm font-medium text-white/80 transition-all duration-300 hover:-translate-y-0.5"
                 >
-                  Run the Demo →
+                  See the 3 steps →
                 </Link>
+              </div>
+
+              <div className="mt-8 max-w-3xl animate-fade-in-up" style={{ animationDelay: "0.4s" }}>
+                <p className="text-sm uppercase tracking-[0.22em] text-white/30 mb-4">
+                  Example team
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  {["Scout", "Data", "Voxy", "Penny", "Judge"].map((name) => (
+                    <span
+                      key={name}
+                      className="px-4 py-2 rounded-full border border-white/10 bg-white/5 text-sm text-white/70"
+                    >
+                      {name}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-sm text-white/35 mt-4 max-w-2xl leading-relaxed">
+                  If you already run a team like this, the first move is simple: register each bot one by one, starting with the clearest public role.
+                </p>
               </div>
 
               <a
@@ -114,6 +165,63 @@ export default function Home() {
 
           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce text-white/20">
             <ChevronDown className="w-6 h-6" />
+          </div>
+        </section>
+
+        <section id="start-here" className="py-20 sm:py-24">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+            <ScrollReveal>
+              <div className="text-center max-w-3xl mx-auto mb-14">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 glass rounded-full text-xs text-white/60 mb-6">
+                  Start here
+                </div>
+                <h2 className="text-3xl sm:text-5xl font-bold mb-6">
+                  If you already have bots, this is the path
+                </h2>
+                <p className="text-white/40 text-lg leading-relaxed">
+                  ADP onboarding should feel obvious from the homepage: register one bot, publish what it does, then repeat for the rest of your team.
+                </p>
+              </div>
+            </ScrollReveal>
+
+            <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-8 items-start">
+              <ScrollReveal direction="left">
+                <div className="glass rounded-3xl p-6 sm:p-8">
+                  <div className="mb-5">
+                    <p className="text-xs uppercase tracking-[0.2em] text-white/30 mb-2">First action</p>
+                    <h3 className="text-2xl font-semibold">Register your first bot in one request</h3>
+                  </div>
+                  <CopyBlock
+                    label="Register Scout on ADP"
+                    code={firstAgentCommand}
+                  />
+                  <p className="text-sm text-white/35 leading-relaxed mt-4">
+                    This creates the agent identity first. After that, you publish the first capability for that bot from the registration flow or control plane.
+                  </p>
+                </div>
+              </ScrollReveal>
+
+              <div className="grid gap-4">
+                {firstSteps.map((step, index) => (
+                  <ScrollReveal key={step.label} delay={index * 0.08} direction="up">
+                    <TiltCard className="rounded-2xl">
+                      <div className="glass rounded-2xl p-6 h-full">
+                        <div className="flex items-start gap-4">
+                          <div className="shrink-0 w-11 h-11 rounded-xl bg-linear-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg">
+                            <step.icon className="w-5 h-5 text-white" />
+                          </div>
+                          <div>
+                            <div className="text-[11px] uppercase tracking-[0.2em] text-white/30 mb-1.5">{step.label}</div>
+                            <h3 className="text-lg font-semibold mb-2">{step.title}</h3>
+                            <p className="text-sm text-white/40 leading-relaxed">{step.description}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </TiltCard>
+                  </ScrollReveal>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
 
@@ -301,10 +409,10 @@ export default function Home() {
                   Developer Experience
                 </div>
                 <h2 className="text-3xl sm:text-5xl font-bold mb-6">
-                  From <code className="text-gradient font-mono">curl</code> to protocol in minutes
+                  From first <code className="text-gradient font-mono">curl</code> to live agent in minutes
                 </h2>
                 <p className="text-white/40 text-lg leading-relaxed">
-                  The repository includes a full developer demo script, protocol docs, and a reference MVP implementation.
+                  Start by registering one agent, then keep going into the full lifecycle with the demo script and protocol reference implementation.
                 </p>
               </div>
             </ScrollReveal>
@@ -313,18 +421,16 @@ export default function Home() {
               <ScrollReveal direction="left">
                 <div className="space-y-4 h-full">
                   <CopyBlock
-                    label="Run ADP locally"
-                    code={`git clone https://github.com/Bidz-nl/agentdiscovery.io.git\ncd agentdiscovery.io\nnpm install && npm run dev\n\n# In a second terminal:\nbash examples/adp-v2-demo.sh`}
+                    label="Register your first agent"
+                    code={firstAgentCommand}
                   />
                   <div className="glass rounded-2xl px-5 py-4">
                     <div className="font-mono text-xs space-y-1 text-white/30">
-                      <div>✓ Agent registered (did:adp:consumer-001)</div>
-                      <div>✓ Handshake session created</div>
-                      <div>✓ Provider discovered</div>
-                      <div>✓ Negotiation submitted</div>
-                      <div>✓ Transaction completed</div>
-                      <div>✓ Reputation recorded</div>
-                      <div className="text-emerald-400/60 mt-2">All 6 protocol steps passed ✓</div>
+                      <div>✓ Agent registered (did:adp:provider-001)</div>
+                      <div>✓ API key returned for secure use</div>
+                      <div>✓ Next step: publish the bot&apos;s first capability</div>
+                      <div>✓ Then repeat for Data, Voxy, Penny, or Judge</div>
+                      <div className="text-emerald-400/60 mt-2">Your team becomes discoverable one bot at a time ✓</div>
                     </div>
                   </div>
                 </div>
@@ -339,7 +445,7 @@ export default function Home() {
                       </div>
                       <div>
                         <h3 className="font-semibold mb-1">One-script demo</h3>
-                        <p className="text-sm text-white/40 leading-relaxed">Run the full ADP v2 lifecycle with a single shell script against localhost.</p>
+                        <p className="text-sm text-white/40 leading-relaxed">After registering an agent, run the full ADP v2 lifecycle with a single shell script against localhost.</p>
                       </div>
                     </div>
                   </TiltCard>

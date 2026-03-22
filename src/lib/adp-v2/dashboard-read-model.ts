@@ -1,4 +1,5 @@
 import { listAgentRecords } from '@/lib/adp-v2/agent-record-repository'
+import { getNegotiationLifecycle } from '@/lib/adp-v2/negotiation-lifecycle'
 import { listNativeNegotiationRecords } from '@/lib/adp-v2/native-negotiation-repository'
 import { listSessionNegotiationRecords } from '@/lib/adp-v2/session-negotiation-repository'
 import { listTransactions } from '@/lib/adp-v2/transact-service'
@@ -46,53 +47,71 @@ function toPublishedCapabilities() {
 }
 
 function toNegotiations() {
-  const native = listNativeNegotiationRecords().map((negotiation) => ({
-    id: negotiation.id,
-    status: negotiation.status,
-    currentRound: negotiation.rounds.length,
-    maxRounds: null,
-    proposals: negotiation.rounds.map((round) => ({
-      from: round.by,
-      terms: {
-        price: round.price,
-      },
-      message: round.message,
-      at: round.at,
-      round: round.round,
-    })),
-    finalTerms:
-      negotiation.status === 'accepted' || negotiation.status === 'completed'
-        ? {
-            price: negotiation.currentPrice,
-          }
-        : null,
-    createdAt: negotiation.createdAt,
-    participantDids: [negotiation.initiatorDid, negotiation.responderDid],
-  }))
+  const native = listNativeNegotiationRecords().map((negotiation) => {
+    const lifecycle = getNegotiationLifecycle(negotiation)
 
-  const session = listSessionNegotiationRecords().map((negotiation) => ({
-    id: negotiation.id,
-    status: negotiation.status,
-    currentRound: negotiation.rounds.length,
-    maxRounds: null,
-    proposals: negotiation.rounds.map((round) => ({
-      from: round.by,
-      terms: {
-        price: round.price,
-      },
-      message: round.message,
-      at: round.at,
-      round: round.round,
-    })),
-    finalTerms:
-      negotiation.status === 'accepted' || negotiation.status === 'completed'
-        ? {
-            price: negotiation.currentPrice,
-          }
-        : null,
-    createdAt: negotiation.createdAt,
-    participantDids: [negotiation.initiatorDid, negotiation.responderDid],
-  }))
+    return {
+      id: negotiation.id,
+      status: lifecycle.normalizedStatus,
+      phase: lifecycle.phase,
+      isAwaitingProvider: lifecycle.isAwaitingProvider,
+      isAwaitingConsumer: lifecycle.isAwaitingConsumer,
+      isDeliveryOpen: lifecycle.isDeliveryOpen,
+      isClosedFailed: lifecycle.isClosedFailed,
+      currentRound: negotiation.rounds.length,
+      maxRounds: null,
+      proposals: negotiation.rounds.map((round) => ({
+        from: round.by,
+        terms: {
+          price: round.price,
+        },
+        message: round.message,
+        at: round.at,
+        round: round.round,
+      })),
+      finalTerms:
+        lifecycle.isDeliveryOpen
+          ? {
+              price: negotiation.currentPrice,
+            }
+          : null,
+      createdAt: negotiation.createdAt,
+      participantDids: [negotiation.initiatorDid, negotiation.responderDid],
+    }
+  })
+
+  const session = listSessionNegotiationRecords().map((negotiation) => {
+    const lifecycle = getNegotiationLifecycle(negotiation)
+
+    return {
+      id: negotiation.id,
+      status: lifecycle.normalizedStatus,
+      phase: lifecycle.phase,
+      isAwaitingProvider: lifecycle.isAwaitingProvider,
+      isAwaitingConsumer: lifecycle.isAwaitingConsumer,
+      isDeliveryOpen: lifecycle.isDeliveryOpen,
+      isClosedFailed: lifecycle.isClosedFailed,
+      currentRound: negotiation.rounds.length,
+      maxRounds: null,
+      proposals: negotiation.rounds.map((round) => ({
+        from: round.by,
+        terms: {
+          price: round.price,
+        },
+        message: round.message,
+        at: round.at,
+        round: round.round,
+      })),
+      finalTerms:
+        lifecycle.isDeliveryOpen
+          ? {
+              price: negotiation.currentPrice,
+            }
+          : null,
+      createdAt: negotiation.createdAt,
+      participantDids: [negotiation.initiatorDid, negotiation.responderDid],
+    }
+  })
 
   return [...native, ...session].sort((a, b) => {
     const left = a.createdAt ? Date.parse(a.createdAt) : 0
@@ -107,9 +126,7 @@ export function getDashboardAggregate(limit: number, offset: number) {
   const allNegotiations = toNegotiations()
   const transactions = listTransactions()
   const completedTransactions = transactions.filter((transaction) => transaction.status === 'completed')
-  const acceptedNegotiations = allNegotiations.filter(
-    (negotiation) => negotiation.status === 'accepted' || negotiation.status === 'completed'
-  )
+  const acceptedNegotiations = allNegotiations.filter((negotiation) => negotiation.isDeliveryOpen)
 
   const capabilitiesByAgent = new Map<string, typeof publishedCapabilities>()
   publishedCapabilities.forEach((capability) => {

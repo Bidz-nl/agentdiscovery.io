@@ -3,17 +3,18 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
+import Link from "next/link"
 import { ArrowLeft, ArrowRight, Building2, Tag, MapPin, Check, Loader2, Bot } from "lucide-react"
 import { useAgentStore } from "../../lib/agent-store"
 import ADPClient from "../../lib/adp-client"
 
 const categoryOptions = [
-  { id: "installation", label: "Installatie", emoji: "🔧" },
-  { id: "repair", label: "Reparatie", emoji: "🛠️" },
-  { id: "food", label: "Eten & Drinken", emoji: "🍕" },
-  { id: "products", label: "Producten", emoji: "📦" },
+  { id: "installation", label: "Installation", emoji: "🔧" },
+  { id: "repair", label: "Repair", emoji: "🛠️" },
+  { id: "food", label: "Food & Drinks", emoji: "🍕" },
+  { id: "products", label: "Products", emoji: "📦" },
   { id: "freelance", label: "Freelance", emoji: "💻" },
-  { id: "other", label: "Overig", emoji: "✨" },
+  { id: "other", label: "Other", emoji: "✨" },
 ]
 
 const brandOptions = [
@@ -25,7 +26,7 @@ const radiusOptions = [
   { value: 10, label: "10 km" },
   { value: 25, label: "25 km" },
   { value: 50, label: "50 km" },
-  { value: 0, label: "Heel NL" },
+  { value: 0, label: "Nationwide" },
 ]
 
 export default function ProviderOnboarding() {
@@ -65,9 +66,9 @@ export default function ProviderOnboarding() {
     try {
       const description = [
         selectedCategories.join(", "),
-        selectedBrands.length > 0 ? `Merken: ${selectedBrands.join(", ")}` : "",
+        selectedBrands.length > 0 ? `Brands: ${selectedBrands.join(", ")}` : "",
         specialization,
-        kvk ? `KvK: ${kvk}` : "",
+        kvk ? `Chamber of Commerce: ${kvk}` : "",
       ].filter(Boolean).join(". ")
 
       const capTitle = selectedCategories.length > 0
@@ -111,7 +112,7 @@ export default function ProviderOnboarding() {
       setCapCount(response.capability ? 1 : 0)
       setStep(4)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registratie mislukt. Probeer opnieuw.")
+      setError(err instanceof Error ? err.message : "Registration failed. Try again.")
     } finally {
       setIsRegistering(false)
     }
@@ -123,31 +124,43 @@ export default function ProviderOnboarding() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen px-6 pt-12 pb-8">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-8">
-        <button
-          onClick={() => (step > 1 ? setStep(step - 1) : router.back())}
-          className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5 text-white/60" />
-        </button>
-        <div className="flex-1">
-          <div className="flex gap-1.5">
-            {[1, 2, 3, 4].map((s) => (
-              <div
-                key={s}
-                className={`h-1 flex-1 rounded-full transition-colors ${
-                  s <= step ? "bg-green-500" : "bg-white/10"
-                }`}
-              />
-            ))}
-          </div>
+    <div className="min-h-screen px-6 pb-8 pt-12">
+      <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col">
+        {/* Back to website */}
+        <div className="mb-2">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-xs text-white/30 hover:text-white/60 transition-colors"
+          >
+            <ArrowLeft className="w-3 h-3" />
+            agentdiscovery.io
+          </Link>
         </div>
-        <span className="text-xs text-white/30">Stap {step}/4</span>
-      </div>
 
-      <AnimatePresence mode="wait">
+        {/* Header */}
+        <div className="mb-8 flex items-center gap-3">
+          <button
+            onClick={() => (step > 1 ? setStep(step - 1) : router.back())}
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 transition-colors hover:bg-white/10"
+          >
+            <ArrowLeft className="w-5 h-5 text-white/60" />
+          </button>
+          <div className="flex-1">
+            <div className="flex gap-1.5">
+              {[1, 2, 3, 4].map((s) => (
+                <div
+                  key={s}
+                  className={`h-1 flex-1 rounded-full transition-colors ${
+                    s <= step ? "bg-green-500" : "bg-white/10"
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+          <span className="text-xs text-white/30">Step {step}/4</span>
+        </div>
+
+        <AnimatePresence mode="wait">
         {/* Step 1: About you */}
         {step === 1 && (
           <motion.div
@@ -160,24 +173,24 @@ export default function ProviderOnboarding() {
             <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center mb-4">
               <Building2 className="w-6 h-6 text-green-400" />
             </div>
-            <h2 className="text-xl font-bold mb-1">Over jou</h2>
+            <h2 className="text-xl font-bold mb-1">About you</h2>
             <p className="text-white/40 text-sm mb-8">
-              We maken een AI-agent aan die klussen voor je ontvangt.
+              We will create an AI agent that receives opportunities for you.
             </p>
 
             <div className="space-y-4">
               <div>
-                <label className="text-sm text-white/50 mb-1.5 block">Bedrijfsnaam</label>
+                <label className="text-sm text-white/50 mb-1.5 block">Company name</label>
                 <input
                   type="text"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="Bijv. Pietersen Installaties"
+                  placeholder="E.g. Pietersen Installations"
                   className="w-full bg-[#111827] border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/20 focus:outline-none focus:border-green-500/50 transition-colors"
                 />
               </div>
               <div>
-                <label className="text-sm text-white/50 mb-1.5 block">KvK-nummer (optioneel)</label>
+                <label className="text-sm text-white/50 mb-1.5 block">Chamber of Commerce number (optional)</label>
                 <input
                   type="text"
                   value={kvk}
@@ -185,7 +198,7 @@ export default function ProviderOnboarding() {
                   placeholder="12345678"
                   className="w-full bg-[#111827] border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/20 focus:outline-none focus:border-green-500/50 transition-colors"
                 />
-                <p className="text-xs text-white/20 mt-1">Verhoogt je trust level naar Level 2</p>
+                <p className="text-xs text-white/20 mt-1">Helps raise your trust level to Level 2</p>
               </div>
             </div>
 
@@ -195,7 +208,7 @@ export default function ProviderOnboarding() {
                 disabled={!companyName.trim()}
                 className="w-full py-3.5 bg-green-600 hover:bg-green-500 disabled:bg-white/5 disabled:text-white/20 rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
               >
-                Volgende
+                Next
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
@@ -214,12 +227,12 @@ export default function ProviderOnboarding() {
             <div className="w-12 h-12 rounded-xl bg-yellow-500/10 flex items-center justify-center mb-4">
               <Tag className="w-6 h-6 text-yellow-400" />
             </div>
-            <h2 className="text-xl font-bold mb-1">Wat bied je aan?</h2>
-            <p className="text-white/40 text-sm mb-6">Selecteer categorieën en merken.</p>
+            <h2 className="text-xl font-bold mb-1">What do you offer?</h2>
+            <p className="text-white/40 text-sm mb-6">Select categories and brands.</p>
 
             <div className="space-y-6 overflow-y-auto flex-1">
               <div>
-                <p className="text-xs text-white/30 font-medium uppercase tracking-wider mb-3">Categorieën</p>
+                <p className="text-xs text-white/30 font-medium uppercase tracking-wider mb-3">Categories</p>
                 <div className="grid grid-cols-3 gap-2">
                   {categoryOptions.map((cat) => {
                     const isSelected = selectedCategories.includes(cat.id)
@@ -244,7 +257,7 @@ export default function ProviderOnboarding() {
               </div>
 
               <div>
-                <p className="text-xs text-white/30 font-medium uppercase tracking-wider mb-3">Merken (optioneel)</p>
+                <p className="text-xs text-white/30 font-medium uppercase tracking-wider mb-3">Brands (optional)</p>
                 <div className="flex flex-wrap gap-2">
                   {brandOptions.map((brand) => {
                     const isSelected = selectedBrands.includes(brand)
@@ -266,12 +279,12 @@ export default function ProviderOnboarding() {
               </div>
 
               <div>
-                <label className="text-sm text-white/50 mb-1.5 block">Specialisaties (optioneel)</label>
+                <label className="text-sm text-white/50 mb-1.5 block">Specializations (optional)</label>
                 <input
                   type="text"
                   value={specialization}
                   onChange={(e) => setSpecialization(e.target.value)}
-                  placeholder="Bijv. smart home, domotica, KNX"
+                  placeholder="E.g. smart home, home automation, KNX"
                   className="w-full bg-[#111827] border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/20 focus:outline-none focus:border-green-500/50 transition-colors"
                 />
               </div>
@@ -283,7 +296,7 @@ export default function ProviderOnboarding() {
                 disabled={selectedCategories.length === 0}
                 className="w-full py-3.5 bg-green-600 hover:bg-green-500 disabled:bg-white/5 disabled:text-white/20 rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
               >
-                Volgende
+                Next
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
@@ -302,8 +315,8 @@ export default function ProviderOnboarding() {
             <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center mb-4">
               <MapPin className="w-6 h-6 text-blue-400" />
             </div>
-            <h2 className="text-xl font-bold mb-1">Waar en wanneer?</h2>
-            <p className="text-white/40 text-sm mb-8">Stel je werkgebied en tarieven in.</p>
+            <h2 className="text-xl font-bold mb-1">Where and when?</h2>
+            <p className="text-white/40 text-sm mb-8">Set your service area and pricing.</p>
 
             <div className="space-y-6">
               <div>
@@ -318,7 +331,7 @@ export default function ProviderOnboarding() {
               </div>
 
               <div>
-                <p className="text-xs text-white/30 font-medium uppercase tracking-wider mb-3">Werkgebied</p>
+                <p className="text-xs text-white/30 font-medium uppercase tracking-wider mb-3">Service area</p>
                 <div className="grid grid-cols-4 gap-2">
                   {radiusOptions.map((opt) => (
                     <button
@@ -337,7 +350,7 @@ export default function ProviderOnboarding() {
               </div>
 
               <div>
-                <label className="text-sm text-white/50 mb-1.5 block">Uurtarief (optioneel)</label>
+                <label className="text-sm text-white/50 mb-1.5 block">Hourly rate (optional)</label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30">€</span>
                   <input
@@ -347,7 +360,7 @@ export default function ProviderOnboarding() {
                     placeholder="65"
                     className="w-full bg-[#111827] border border-white/10 rounded-xl pl-8 pr-16 py-3 text-white placeholder:text-white/20 focus:outline-none focus:border-green-500/50 transition-colors"
                   />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 text-sm">/uur</span>
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 text-sm">/hr</span>
                 </div>
               </div>
             </div>
@@ -364,11 +377,11 @@ export default function ProviderOnboarding() {
                 {isRegistering ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Agent aanmaken...
+                    Creating agent...
                   </>
                 ) : (
                   <>
-                    Agent aanmaken
+                    Create agent
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -394,9 +407,9 @@ export default function ProviderOnboarding() {
               <Bot className="w-10 h-10 text-green-400" />
             </motion.div>
 
-            <h2 className="text-xl font-bold mb-2">Je agent is live!</h2>
+            <h2 className="text-xl font-bold mb-2">Your agent is live!</h2>
             <p className="text-white/40 text-sm mb-8">
-              {companyName} is nu vindbaar op het ADP-netwerk. Klanten kunnen je vinden.
+              {companyName} is now visible on the ADP network. Customers can find you.
             </p>
 
             <div className="w-full bg-[#111827] border border-white/5 rounded-xl p-4 mb-8 text-left">
@@ -408,12 +421,12 @@ export default function ProviderOnboarding() {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-xs text-white/30">Diensten</span>
+                  <span className="text-xs text-white/30">Capabilities</span>
                   <span className="text-xs text-white/50">{capCount} capability{capCount !== 1 ? "s" : ""}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-xs text-white/30">Trust Level</span>
-                  <span className="text-xs text-white/50">Level {kvk ? 2 : 1} — {kvk ? "Geverifieerd" : "Starter"}</span>
+                  <span className="text-xs text-white/50">Level {kvk ? 2 : 1} — {kvk ? "Verified" : "Starter"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-xs text-white/30">Status</span>
@@ -429,11 +442,12 @@ export default function ProviderOnboarding() {
               onClick={handleComplete}
               className="w-full py-3.5 bg-green-600 hover:bg-green-500 rounded-xl font-medium transition-colors"
             >
-              Bekijk binnenkomende klussen
+              Review incoming requests
             </button>
           </motion.div>
         )}
-      </AnimatePresence>
+        </AnimatePresence>
+      </div>
     </div>
   )
 }

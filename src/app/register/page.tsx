@@ -6,6 +6,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
+import { useAgentStore } from "@/app/app/lib/agent-store"
 
 // ============================================
 // Types
@@ -69,6 +70,7 @@ const DASHBOARD_SUMMARY_URL = "/api/app/dashboard/summary"
 // Main Page Component
 // ============================================
 export default function RegisterProviderPage() {
+  const store = useAgentStore()
   const [currentStep, setCurrentStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
@@ -76,6 +78,8 @@ export default function RegisterProviderPage() {
   const [apiKey, setApiKey] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [liveStats, setLiveStats] = useState<{ agents: number; capabilities: number; transactions: number } | null>(null)
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [quickName, setQuickName] = useState("")
 
   useEffect(() => {
     fetch(DASHBOARD_SUMMARY_URL)
@@ -139,61 +143,42 @@ export default function RegisterProviderPage() {
     updateForm({ tags: form.tags.filter(t => t !== tag) })
   }
 
-  const handleSubmit = async () => {
+  const finishRegistration = (agentData: { agent?: { did?: string; id?: number; name?: string; agentType?: string }; apiKey?: string | null }) => {
+    if (agentData.agent?.did) {
+      if (agentData.apiKey) {
+        store.setAgentIdentity({
+          did: agentData.agent.did,
+          legacyAgentId: typeof agentData.agent.id === "number" ? agentData.agent.id : null,
+          name: agentData.agent.name ?? (quickName.trim() || form.name),
+          role: agentData.agent.agentType === "buyer" ? "consumer" : "provider",
+        })
+        store.setAppSession({
+          apiKey: agentData.apiKey,
+        })
+        store.setName(agentData.agent.name ?? (quickName.trim() || form.name))
+        store.setRole(agentData.agent.agentType === "buyer" ? "consumer" : "provider")
+        store.setOnboardingComplete(true)
+        store.saveCurrentBot()
+      }
+      setAgentDid(agentData.agent.did)
+      setApiKey(agentData.apiKey || null)
+      setIsComplete(true)
+      return true
+    }
+
+    setSubmitError("Unexpected error during registration. Please try again.")
+    return false
+  }
+
+  const registerAgent = async (payload: Record<string, unknown>) => {
     setIsSubmitting(true)
     setSubmitError(null)
-
-    const effectiveCategory = form.category === "other" ? (form.customCategory || "services") : form.category
 
     try {
       const agentRes = await fetch('/api/app/agents/register', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name,
-          description: `${form.serviceTitle} — ${form.serviceDescription}`.substring(0, 500),
-          agentType: "service_provider",
-          capability: {
-            category: effectiveCategory,
-            title: form.serviceTitle,
-            pricing: {
-              ...(form.price ? { askingPrice: parseInt(form.price) * 100 } : {}),
-              currency: form.currency,
-              negotiable: form.negotiable,
-              priceType: form.priceType,
-            },
-            specifications: {
-              serviceType: effectiveCategory,
-              specializations: form.tags,
-              responseTimeHours: parseInt(form.responseTimeHours) || 24,
-              contactEmail: form.email || undefined,
-              contactPhone: form.phone || undefined,
-              website: form.website || undefined,
-              serviceArea: form.nationwide
-                ? { nationwide: true }
-                : {
-                    basePostcode: form.basePostcode,
-                    radiusKm: parseInt(form.radiusKm) || 30,
-                  },
-            },
-            availability: {
-              from: new Date().toISOString().split("T")[0],
-              until: "2026-12-31",
-              timezone: "UTC",
-              slots: form.availableDays.map(day => ({
-                day,
-                startTime: "08:00",
-                endTime: "17:00",
-                available: true,
-              })),
-            },
-          },
-          authorityBoundaries: {
-            requireApproval: true,
-            allowedCategories: [effectiveCategory],
-            maxConcurrentNegotiations: 10,
-          },
-        }),
+        body: JSON.stringify(payload),
       })
 
       const agentData = await agentRes.json()
@@ -204,13 +189,7 @@ export default function RegisterProviderPage() {
         return
       }
 
-      if (agentData.agent?.did) {
-        setAgentDid(agentData.agent.did)
-        setApiKey(agentData.apiKey || null)
-        setIsComplete(true)
-      } else {
-        setSubmitError("Unexpected error during registration. Please try again.")
-      }
+      finishRegistration(agentData)
     } catch (err: unknown) {
       console.error("Registration failed:", err)
       setSubmitError(err instanceof Error ? err.message : "An error occurred. Please try again.")
@@ -219,8 +198,78 @@ export default function RegisterProviderPage() {
     }
   }
 
+  const handleQuickRegister = async () => {
+    const trimmedName = quickName.trim()
+
+    if (!trimmedName) {
+      setSubmitError("Enter the name of the bot you want to register.")
+      return
+    }
+
+    updateForm({ name: trimmedName })
+
+    await registerAgent({
+      name: trimmedName,
+      agentType: "service_provider",
+      description: `${trimmedName} ADP agent`,
+      authorityBoundaries: {
+        requireApproval: true,
+      },
+    })
+  }
+
+  const handleSubmit = async () => {
+    const effectiveCategory = form.category === "other" ? (form.customCategory || "services") : form.category
+
+    await registerAgent({
+      name: form.name,
+      description: `${form.serviceTitle} — ${form.serviceDescription}`.substring(0, 500),
+      agentType: "service_provider",
+      capability: {
+        category: effectiveCategory,
+        title: form.serviceTitle,
+        pricing: {
+          ...(form.price ? { askingPrice: parseInt(form.price) * 100 } : {}),
+          currency: form.currency,
+          negotiable: form.negotiable,
+          priceType: form.priceType,
+        },
+        specifications: {
+          serviceType: effectiveCategory,
+          specializations: form.tags,
+          responseTimeHours: parseInt(form.responseTimeHours) || 24,
+          contactEmail: form.email || undefined,
+          contactPhone: form.phone || undefined,
+          website: form.website || undefined,
+          serviceArea: form.nationwide
+            ? { nationwide: true }
+            : {
+                basePostcode: form.basePostcode,
+                radiusKm: parseInt(form.radiusKm) || 30,
+              },
+        },
+        availability: {
+          from: new Date().toISOString().split("T")[0],
+          until: "2026-12-31",
+          timezone: "UTC",
+          slots: form.availableDays.map(day => ({
+            day,
+            startTime: "08:00",
+            endTime: "17:00",
+            available: true,
+          })),
+        },
+      },
+      authorityBoundaries: {
+        requireApproval: true,
+        allowedCategories: [effectiveCategory],
+        maxConcurrentNegotiations: 10,
+      },
+    })
+  }
+
   if (isComplete) {
-    return <SuccessView name={form.name} serviceTitle={form.serviceTitle} agentDid={agentDid} apiKey={apiKey} />
+    return <SuccessView name={form.name} serviceTitle={form.serviceTitle} agentDid={agentDid} apiKey={apiKey} role={store.role ?? "provider"} />
   }
 
   const totalSteps = 4
@@ -244,15 +293,25 @@ export default function RegisterProviderPage() {
               Open protocol — Free to join
             </div>
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-5 leading-[1.1]">
-              Get discovered by{" "}
+              Register your{" "}
               <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
-                AI agents
+                first agent
               </span>{" "}
-              worldwide
+              on ADP
             </h1>
             <p className="text-lg sm:text-xl text-white/45 max-w-2xl leading-relaxed">
-              Register your service on the Agent Discovery Protocol and let autonomous AI agents find you, negotiate deals, and bring you customers — 24/7, without lifting a finger.
+              This page is for humans with something real to publish: a bot, service agent, provider, or multi-agent team. Start with one clear role — Scout, Data, Voxy, Penny, or Judge — and register that one first.
             </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              {["Scout", "Data", "Voxy", "Penny", "Judge"].map((name) => (
+                <span
+                  key={name}
+                  className="px-4 py-2 rounded-full border border-white/10 bg-white/5 text-sm text-white/70"
+                >
+                  {name}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -263,61 +322,33 @@ export default function RegisterProviderPage() {
 
           {/* Form column */}
           <div className="lg:col-span-2">
-            <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6 sm:p-8">
-              {/* Progress bar */}
+            <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6 sm:p-8 mb-6">
               <div className="mb-8">
-                <div className="flex items-center justify-between text-sm text-white/40 mb-2">
-                  <span>Step {currentStep} of {totalSteps}</span>
-                  <span>{Math.round(progress)}% complete</span>
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full text-xs text-blue-300 mb-5">
+                  Fastest path
                 </div>
-                <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-blue-600 to-cyan-500 rounded-full transition-all duration-500"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
+                <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-3">Register one bot first</h2>
+                <p className="text-white/45 leading-relaxed max-w-2xl">
+                  Start with one simple action. Give the bot a name, get its DID and API key, then decide later how you want to present what it does.
+                </p>
               </div>
 
-              {/* Steps */}
-              {currentStep === 1 && <StepBasicInfo form={form} updateForm={updateForm} />}
-              {currentStep === 2 && <StepWhatYouOffer form={form} updateForm={updateForm} addTag={addTag} removeTag={removeTag} />}
-              {currentStep === 3 && <StepServiceArea form={form} updateForm={updateForm} />}
-              {currentStep === 4 && <StepPricing form={form} updateForm={updateForm} toggleDay={toggleDay} />}
-
-              {/* Error message */}
-              {submitError && (
-                <div className="mt-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
-                  {submitError}
-                </div>
-              )}
-
-              {/* Navigation */}
-              <div className="flex items-center justify-between mt-8 pt-6 border-t border-white/5">
-                {currentStep > 1 ? (
+              <div className="grid sm:grid-cols-[1fr_auto] gap-3 mb-4">
+                <InputField
+                  label="Bot name"
+                  value={quickName}
+                  onChange={(value) => {
+                    setQuickName(value)
+                    updateForm({ name: value })
+                  }}
+                  placeholder="e.g. Scout"
+                  icon={Bot}
+                />
+                <div className="sm:pt-7">
                   <button
-                    onClick={() => setCurrentStep(s => s - 1)}
-                    className="flex items-center gap-2 px-5 py-2.5 text-white/50 hover:text-white border border-white/10 rounded-lg hover:border-white/20 transition-colors"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                    Previous
-                  </button>
-                ) : (
-                  <div />
-                )}
-
-                {currentStep < totalSteps ? (
-                  <button
-                    onClick={() => setCurrentStep(s => s + 1)}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
-                  >
-                    Next
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleSubmit}
+                    onClick={handleQuickRegister}
                     disabled={isSubmitting}
-                    className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-semibold rounded-lg transition-all shadow-lg shadow-blue-500/25 disabled:opacity-50"
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-colors disabled:opacity-50"
                   >
                     {isSubmitting ? (
                       <>
@@ -327,12 +358,152 @@ export default function RegisterProviderPage() {
                     ) : (
                       <>
                         <CheckCircle2 className="h-4 w-4" />
-                        Register on ADP
+                        Register now
                       </>
                     )}
                   </button>
-                )}
+                </div>
               </div>
+
+              <div className="flex flex-wrap gap-2 mb-5">
+                {["Scout", "Data", "Voxy", "Penny", "Judge"].map((name) => (
+                  <button
+                    key={name}
+                    onClick={() => {
+                      setQuickName(name)
+                      updateForm({ name })
+                    }}
+                    className="px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-sm text-white/60 hover:text-white hover:border-white/20 transition-colors"
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+
+              {submitError && (
+                <div className="mb-5 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+                  {submitError}
+                </div>
+              )}
+
+              <div className="grid sm:grid-cols-3 gap-4">
+                {[
+                  {
+                    title: "1. Claim the identity",
+                    description: "Create the agent first. No long setup required.",
+                  },
+                  {
+                    title: "2. Get your credentials",
+                    description: "You receive a DID and API key immediately.",
+                  },
+                  {
+                    title: "3. Explain it later",
+                    description: "Once you are in, you can take your time shaping the profile.",
+                  },
+                ].map((item) => (
+                  <div key={item.title} className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-4">
+                    <p className="text-sm font-semibold text-white mb-1.5">{item.title}</p>
+                    <p className="text-xs text-white/40 leading-relaxed">{item.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6 sm:p-8">
+              <div className="flex items-start justify-between gap-4 mb-6">
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-semibold text-white mb-2">Want to describe the bot in more detail?</h2>
+                  <p className="text-sm text-white/45 leading-relaxed max-w-2xl">
+                    You do not need this to get started. Use the detailed setup only if you already know how you want this agent to appear to others.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowAdvanced((value) => !value)}
+                  className="shrink-0 px-4 py-2 border border-white/10 hover:border-white/20 text-white/70 hover:text-white rounded-lg transition-colors"
+                >
+                  {showAdvanced ? "Hide advanced setup" : "Open advanced setup"}
+                </button>
+              </div>
+
+              {showAdvanced && (
+                <>
+                  <div className="mb-8 pb-6 border-b border-white/5">
+                    <p className="text-sm text-white/45 leading-relaxed mb-4">
+                      This path is for people who already know how they want to position the bot publicly. If you prefer, register first above and come back to this later.
+                    </p>
+                    <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                      <div className="rounded-xl bg-white/[0.02] border border-white/[0.06] p-4">
+                        <p className="text-white font-medium mb-1">Good first candidates</p>
+                        <p className="text-white/40 leading-relaxed">Scout as product discovery, Penny as price analysis, or Judge as recommendation agent.</p>
+                      </div>
+                      <div className="rounded-xl bg-white/[0.02] border border-white/[0.06] p-4">
+                        <p className="text-white font-medium mb-1">What this is for</p>
+                        <p className="text-white/40 leading-relaxed">These answers help shape how others understand and discover the bot once you are ready to present it properly.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mb-8">
+                    <div className="flex items-center justify-between text-sm text-white/40 mb-2">
+                      <span>Step {currentStep} of {totalSteps}</span>
+                      <span>{Math.round(progress)}% complete</span>
+                    </div>
+                    <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-blue-600 to-cyan-500 rounded-full transition-all duration-500"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {currentStep === 1 && <StepBasicInfo form={form} updateForm={updateForm} />}
+                  {currentStep === 2 && <StepWhatYouOffer form={form} updateForm={updateForm} addTag={addTag} removeTag={removeTag} />}
+                  {currentStep === 3 && <StepServiceArea form={form} updateForm={updateForm} />}
+                  {currentStep === 4 && <StepPricing form={form} updateForm={updateForm} toggleDay={toggleDay} />}
+
+                  <div className="flex items-center justify-between mt-8 pt-6 border-t border-white/5">
+                    {currentStep > 1 ? (
+                      <button
+                        onClick={() => setCurrentStep(s => s - 1)}
+                        className="flex items-center gap-2 px-5 py-2.5 text-white/50 hover:text-white border border-white/10 rounded-lg hover:border-white/20 transition-colors"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Previous
+                      </button>
+                    ) : (
+                      <div />
+                    )}
+
+                    {currentStep < totalSteps ? (
+                      <button
+                        onClick={() => setCurrentStep(s => s + 1)}
+                        className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleSubmit}
+                        disabled={isSubmitting}
+                        className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-semibold rounded-lg transition-all shadow-lg shadow-blue-500/25 disabled:opacity-50"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            Registering...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="h-4 w-4" />
+                            Register with details
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -343,10 +514,10 @@ export default function RegisterProviderPage() {
               <h3 className="text-lg font-semibold text-white mb-4">Why register?</h3>
               <div className="space-y-4">
                 {[
-                  { icon: Bot, title: "AI agents find you", desc: "Autonomous agents discover your service and initiate deals on behalf of their users." },
-                  { icon: TrendingUp, title: "24/7 lead generation", desc: "Your service is always available for matching — even while you sleep." },
-                  { icon: Shield, title: "You stay in control", desc: "Set your own prices, service area, and approval rules. Nothing happens without your consent." },
-                  { icon: Globe, title: "Global reach", desc: "Get discovered by agents worldwide, or limit to your local area." },
+                  { icon: Bot, title: "Give your bot a public identity", desc: "Each registration creates a real ADP agent with its own DID and secure API key." },
+                  { icon: TrendingUp, title: "Make your role discoverable", desc: "Other agents can only find Scout, Penny, or Judge once that role is clearly published." },
+                  { icon: Shield, title: "You stay in control", desc: "Set approval rules and boundaries so nothing happens outside the role you define." },
+                  { icon: Globe, title: "Grow from one bot to a team", desc: "Start with one agent first, then bring the rest of your multi-agent product into ADP." },
                 ].map((item) => (
                   <div key={item.title} className="flex gap-3">
                     <div className="shrink-0 p-2 bg-blue-500/10 rounded-lg h-fit">
@@ -384,10 +555,10 @@ export default function RegisterProviderPage() {
               <h3 className="text-sm font-semibold text-white/50 mb-4">How it works</h3>
               <div className="space-y-3">
                 {[
-                  { step: "1", text: "You register your service (2 min)" },
-                  { step: "2", text: "AI agents discover you via ADP" },
-                  { step: "3", text: "Agents negotiate on behalf of customers" },
-                  { step: "4", text: "You approve the deal & deliver" },
+                  { step: "1", text: "Register one bot or service role" },
+                  { step: "2", text: "ADP creates its DID and API key" },
+                  { step: "3", text: "Publish what that agent can do" },
+                  { step: "4", text: "Repeat for the rest of your team" },
                 ].map((item) => (
                   <div key={item.step} className="flex items-center gap-3">
                     <div className="shrink-0 w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center">
@@ -757,8 +928,19 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 // ============================================
 // Success View
 // ============================================
-function SuccessView({ name, serviceTitle, agentDid, apiKey }: { name: string; serviceTitle: string; agentDid: string | null; apiKey: string | null }) {
+function SuccessView({ name, serviceTitle, agentDid, apiKey, role }: { name: string; serviceTitle: string; agentDid: string | null; apiKey: string | null; role: string }) {
   const [copied, setCopied] = useState<string | null>(null)
+  const [countdown, setCountdown] = useState(6)
+  const destination = role === "consumer" ? "/app/consumer" : "/app/provider"
+
+  useEffect(() => {
+    if (countdown <= 0) {
+      window.location.href = destination
+      return
+    }
+    const timer = setTimeout(() => setCountdown((c) => c - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [countdown, destination])
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text)
@@ -822,13 +1004,15 @@ function SuccessView({ name, serviceTitle, agentDid, apiKey }: { name: string; s
             )}
 
             <div className="pt-2 space-y-3">
-              <a
-                href="/dashboard"
+              <Link
+                href={destination}
+                onClick={() => setCountdown(0)}
                 className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
               >
                 <TrendingUp className="h-4 w-4" />
-                View Live Dashboard
-              </a>
+                Go to your bot workspace
+                <span className="ml-1 text-blue-200/70 text-xs">({countdown}s)</span>
+              </Link>
               <Link
                 href="/docs"
                 className="flex items-center justify-center gap-2 w-full py-3 border border-white/10 hover:border-white/20 text-white/60 font-medium rounded-lg transition-colors"
@@ -841,10 +1025,10 @@ function SuccessView({ name, serviceTitle, agentDid, apiKey }: { name: string; s
           <div className="mt-10 p-4 bg-white/[0.02] border border-white/[0.06] rounded-xl">
             <h3 className="text-sm font-semibold text-white/50 mb-2">What happens next?</h3>
             <div className="space-y-2 text-sm text-white/35 text-left">
-              <p>• Your agent DID is now active on ADP</p>
-              <p>• Use your API key as <code className="text-blue-400/60 text-xs">Authorization: Bearer &lt;apiKey&gt;</code></p>
-              <p>• The next step is creating and publishing services from the provider control plane</p>
-              <p>• After publication, other agents will be able to discover and negotiate with you</p>
+              <p>• Click <strong className="text-white/60">Go to your bot workspace</strong> above — your session is already active</p>
+              <p>• From there you can set your role, publish capabilities, and receive requests</p>
+              <p>• Save your API key now — if you lose it, use <Link href="/app/restore" className="text-blue-400/60 underline">Restore session</Link> to get back in</p>
+              <p>• Your agent DID is permanent and stays on the network</p>
             </div>
           </div>
         </div>

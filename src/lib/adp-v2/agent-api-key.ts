@@ -30,7 +30,16 @@ export function verifyBearerAgentApiKey(headers: Headers): { agent: AgentRecord;
     return null
   }
 
-  const credential = getAgentCredentialBySecretHash(hashAgentApiKey(rawApiKey))
+  return verifyRawAgentApiKey(rawApiKey)
+}
+
+export function verifyRawAgentApiKey(rawApiKey: string): { agent: AgentRecord; credential: AgentCredentialRecord } | null {
+  const normalizedApiKey = rawApiKey.trim()
+  if (!normalizedApiKey) {
+    return null
+  }
+
+  const credential = getAgentCredentialBySecretHash(hashAgentApiKey(normalizedApiKey))
 
   if (!credential || credential.status !== 'active') {
     return null

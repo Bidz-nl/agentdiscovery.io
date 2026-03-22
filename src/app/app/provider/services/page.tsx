@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { Archive, ExternalLink, Loader2, Pencil, Plus, RotateCcw, Tag, Trash2 } from 'lucide-react'
+import { Archive, ArrowLeft, ExternalLink, Loader2, Pencil, Plus, RotateCcw, Tag, Trash2 } from 'lucide-react'
 
 import ADPClient from '@/app/app/lib/adp-client'
 import { useAgentStore } from '@/app/app/lib/agent-store'
@@ -15,7 +15,7 @@ function getDisplayStatus(service: OwnerServiceReadModel) {
   if (service.status === 'archived') {
     return {
       label: 'Archived',
-      detail: 'Retained privately outside the active services list',
+      detail: 'Retained privately outside the active capabilities list',
       className: 'bg-white/5 text-white/55 border border-white/10',
     }
   }
@@ -45,7 +45,7 @@ function getDisplayStatus(service: OwnerServiceReadModel) {
 
 function confirmPermanentDelete(service: Pick<OwnerServiceReadModel, 'title'>) {
   const promptValue = window.prompt(
-    `Type DELETE to permanently remove "${service.title.trim() || 'Untitled service'}". This cannot be undone.`,
+    `Type DELETE to permanently remove "${service.title.trim() || 'Untitled capability'}". This cannot be undone.`,
     ''
   )
 
@@ -54,7 +54,7 @@ function confirmPermanentDelete(service: Pick<OwnerServiceReadModel, 'title'>) {
 
 export default function ProviderServices() {
   const router = useRouter()
-  const { appSession } = useAgentStore()
+  const { appSession, name: botName } = useAgentStore()
   const appApiKey = appSession.apiKey
   const [services, setServices] = useState<OwnerServiceReadModel[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -99,7 +99,7 @@ export default function ProviderServices() {
 
   const handlePublish = async (serviceId: string) => {
     if (!appApiKey) {
-      setErrorMessage('Owner app session is required to publish a service')
+      setErrorMessage('Owner app session is required to publish a capability')
       return
     }
 
@@ -117,7 +117,7 @@ export default function ProviderServices() {
       )
       await loadServices()
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Unable to publish service')
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to publish capability')
     } finally {
       setActiveActionKey(null)
     }
@@ -125,7 +125,7 @@ export default function ProviderServices() {
 
   const handleUnpublish = async (serviceId: string) => {
     if (!appApiKey) {
-      setErrorMessage('Owner app session is required to unpublish a service')
+      setErrorMessage('Owner app session is required to unpublish a capability')
       return
     }
 
@@ -135,10 +135,10 @@ export default function ProviderServices() {
       setStatusMessage(null)
       const client = new ADPClient(appApiKey)
       await client.unpublishOwnerService(serviceId)
-      setStatusMessage('Service removed from the manifest. Your private draft is still intact')
+      setStatusMessage('Capability removed from the live manifest. Your private draft is still intact')
       await loadServices()
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Unable to unpublish service')
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to unpublish capability')
     } finally {
       setActiveActionKey(null)
     }
@@ -146,7 +146,7 @@ export default function ProviderServices() {
 
   const handleArchive = async (serviceId: string) => {
     if (!appApiKey) {
-      setErrorMessage('Owner app session is required to archive a service')
+      setErrorMessage('Owner app session is required to archive a capability')
       return
     }
 
@@ -156,10 +156,10 @@ export default function ProviderServices() {
       setStatusMessage(null)
       const client = new ADPClient(appApiKey)
       await client.archiveOwnerService(serviceId)
-      setStatusMessage('Service archived. Its private draft and publication history are still preserved')
+      setStatusMessage('Capability archived. Its private draft and publication history are still preserved')
       await loadServices()
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Unable to archive service')
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to archive capability')
     } finally {
       setActiveActionKey(null)
     }
@@ -167,7 +167,7 @@ export default function ProviderServices() {
 
   const handleRestore = async (serviceId: string) => {
     if (!appApiKey) {
-      setErrorMessage('Owner app session is required to restore a service')
+      setErrorMessage('Owner app session is required to restore a capability')
       return
     }
 
@@ -177,10 +177,10 @@ export default function ProviderServices() {
       setStatusMessage(null)
       const client = new ADPClient(appApiKey)
       await client.restoreOwnerService(serviceId)
-      setStatusMessage('Archived service restored to the active private draft list')
+      setStatusMessage('Archived capability restored to the active private draft list')
       await loadServices()
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Unable to restore service')
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to restore capability')
     } finally {
       setActiveActionKey(null)
     }
@@ -188,7 +188,7 @@ export default function ProviderServices() {
 
   const handleDelete = async (service: OwnerServiceReadModel) => {
     if (!appApiKey) {
-      setErrorMessage('Owner app session is required to delete a service')
+      setErrorMessage('Owner app session is required to delete a capability')
       return
     }
 
@@ -202,10 +202,10 @@ export default function ProviderServices() {
       setStatusMessage(null)
       const client = new ADPClient(appApiKey)
       await client.deleteOwnerService(service.id)
-      setStatusMessage('Service permanently deleted')
+      setStatusMessage('Capability permanently deleted')
       await loadServices()
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Unable to delete service')
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to delete capability')
     } finally {
       setActiveActionKey(null)
     }
@@ -226,12 +226,12 @@ export default function ProviderServices() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: index * 0.04 }}
-        className="rounded-2xl border border-white/5 bg-[#111827] p-4"
+        className="h-full rounded-2xl border border-white/5 bg-[#111827] p-5"
       >
         <div className="mb-4 flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <div className="mb-2 flex flex-wrap items-center gap-2">
-              <h3 className="truncate text-base font-semibold">{service.title || 'Untitled draft'}</h3>
+              <h3 className="truncate text-base font-semibold">{service.title || 'Untitled capability draft'}</h3>
               <span className={`rounded-full px-2.5 py-1 text-[11px] ${status.className}`}>{status.label}</span>
             </div>
             <p className="mb-2 text-xs text-white/45">{status.detail}</p>
@@ -261,9 +261,9 @@ export default function ProviderServices() {
         </div>
 
         {service.description ? (
-          <p className="mb-3 line-clamp-2 text-sm text-white/45">{service.description}</p>
+          <p className="mb-4 line-clamp-3 text-sm leading-6 text-white/45">{service.description}</p>
         ) : (
-          <p className="mb-3 text-sm text-white/25">No description yet</p>
+          <p className="mb-4 text-sm text-white/25">No description yet</p>
         )}
 
         <div className="mb-4 flex flex-wrap items-center gap-3 text-xs text-white/45">
@@ -360,83 +360,103 @@ export default function ProviderServices() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col px-4 pb-24 pt-12">
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-6 flex items-center justify-between"
-      >
-        <div>
-          <h1 className="text-2xl font-bold">My services</h1>
-          <p className="mt-1 text-sm text-white/40">Manage your private drafts and explicit publish state</p>
-        </div>
-        <button
-          onClick={() => router.push('/app/provider/services/add')}
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-600 transition-colors hover:bg-green-500"
+    <div className="min-h-screen px-4 pb-24 pt-12">
+      <div className="mx-auto max-w-6xl">
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
         >
-          <Plus className="h-5 w-5" />
-        </button>
-      </motion.div>
+          <div>
+            <h1 className="text-2xl font-bold">My capabilities</h1>
+            <p className="mt-1 text-sm text-white/40">
+              {botName ? (
+                <>
+                  <span className="font-medium text-white/60">{botName}</span> — manage drafts, live publications and archived capabilities.
+                </>
+              ) : (
+                'Manage your private drafts, live publications, and archived capability ideas.'
+              )}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/app/provider"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/75 transition-colors hover:bg-white/10"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to your bot
+            </Link>
+            <button
+              onClick={() => router.push('/app/provider/services/add')}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-green-500"
+            >
+              <Plus className="h-4 w-4" />
+              Add capability
+            </button>
+          </div>
+        </motion.div>
 
-      {errorMessage ? (
-        <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-          {errorMessage}
+        {errorMessage ? (
+          <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {errorMessage}
+          </div>
+        ) : null}
+
+        {statusMessage ? (
+          <div className="mb-4 rounded-2xl border border-green-500/20 bg-green-500/10 px-4 py-3 text-sm text-green-200">
+            {statusMessage}
+          </div>
+        ) : null}
+
+        <div className="mb-6">
+          <ProviderScopeCard appApiKey={appApiKey} redirectTo="/app/provider/services" />
         </div>
-      ) : null}
 
-      {statusMessage ? (
-        <div className="mb-4 rounded-2xl border border-green-500/20 bg-green-500/10 px-4 py-3 text-sm text-green-200">
-          {statusMessage}
-        </div>
-      ) : null}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-white/20" />
+          </div>
+        ) : activeServices.length > 0 || archivedServices.length > 0 ? (
+          <div className="space-y-10">
+            {activeServices.length > 0 ? (
+              <div>
+                <div className="mb-4">
+                  <h2 className="text-sm font-semibold text-white/80">Active capabilities</h2>
+                  <p className="mt-1 text-xs text-white/40">Private drafts and live capabilities currently in your active workflow.</p>
+                </div>
+                <div className="grid gap-4 xl:grid-cols-2">
+                  {activeServices.map((service, index) => renderServiceCard(service, index))}
+                </div>
+              </div>
+            ) : null}
 
-      <div className="mb-4">
-        <ProviderScopeCard appApiKey={appApiKey} redirectTo="/app/provider/services" />
+            {archivedServices.length > 0 ? (
+              <div>
+                <div className="mb-4">
+                  <h2 className="text-sm font-semibold text-white/80">Archived capabilities</h2>
+                  <p className="mt-1 text-xs text-white/40">Retained privately outside the default active list. Restore to continue editing or publishing.</p>
+                </div>
+                <div className="grid gap-4 xl:grid-cols-2">
+                  {archivedServices.map((service, index) => renderServiceCard(service, index))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center rounded-3xl border border-white/5 bg-[#111827] px-6 py-16 text-center">
+            <Tag className="mb-4 h-12 w-12 text-white/10" />
+            <p className="text-sm text-white/30">No capabilities yet</p>
+            <p className="mt-1 text-xs text-white/15">Create your first private draft to start describing what this bot can do.</p>
+            <button
+              onClick={() => router.push('/app/provider/services/add')}
+              className="mt-6 rounded-xl bg-green-600 px-6 py-2.5 text-sm font-medium transition-colors hover:bg-green-500"
+            >
+              Add capability
+            </button>
+          </div>
+        )}
       </div>
-
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-white/20" />
-        </div>
-      ) : activeServices.length > 0 || archivedServices.length > 0 ? (
-        <div className="space-y-8">
-          {activeServices.length > 0 ? (
-            <div>
-              <div className="mb-4">
-                <h2 className="text-sm font-semibold text-white/80">Active services</h2>
-                <p className="mt-1 text-xs text-white/40">Private drafts and live services currently in your active workflow.</p>
-              </div>
-              <div className="space-y-4">
-                {activeServices.map((service, index) => renderServiceCard(service, index))}
-              </div>
-            </div>
-          ) : null}
-
-          {archivedServices.length > 0 ? (
-            <div>
-              <div className="mb-4">
-                <h2 className="text-sm font-semibold text-white/80">Archived services</h2>
-                <p className="mt-1 text-xs text-white/40">Retained privately outside the default active list. Restore to continue editing or publishing.</p>
-              </div>
-              <div className="space-y-4">
-                {archivedServices.map((service, index) => renderServiceCard(service, index))}
-              </div>
-            </div>
-          ) : null}
-        </div>
-      ) : (
-        <div className="flex flex-1 flex-col items-center justify-center py-12 text-center">
-          <Tag className="mb-4 h-12 w-12 text-white/10" />
-          <p className="text-sm text-white/30">No services yet</p>
-          <p className="mt-1 text-xs text-white/15">Create your first private draft to start managing services</p>
-          <button
-            onClick={() => router.push('/app/provider/services/add')}
-            className="mt-6 rounded-xl bg-green-600 px-6 py-2.5 text-sm font-medium transition-colors hover:bg-green-500"
-          >
-            Add service
-          </button>
-        </div>
-      )}
     </div>
   )
 }

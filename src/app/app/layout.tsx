@@ -12,7 +12,7 @@ export default function AppLayout({
 
   return (
     <div className="min-h-screen bg-[#0A0E17] text-white">
-      <div className="max-w-md mx-auto min-h-screen pb-20">
+      <div className="min-h-screen pb-20">
         {children}
       </div>
       {onboardingComplete && <BottomNav />}

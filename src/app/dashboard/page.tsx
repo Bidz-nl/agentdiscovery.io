@@ -5,6 +5,7 @@ import { Bot, Zap, Search, Handshake, CreditCard, Activity, ArrowRight, CheckCir
 import Link from "next/link"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
+import { getNegotiationLifecyclePresentation } from "@/lib/adp-v2/negotiation-lifecycle"
 
 // ============================================
 // Types
@@ -62,6 +63,11 @@ interface DashboardData {
   negotiations: Array<{
     id: number
     status: string
+    phase: string
+    isAwaitingProvider: boolean
+    isAwaitingConsumer: boolean
+    isDeliveryOpen: boolean
+    isClosedFailed: boolean
     currentRound: number | null
     maxRounds: number | null
     proposals: Array<{
@@ -121,6 +127,45 @@ function StatusBadge({ status }: { status: string }) {
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${styles[status] || styles.pending}`}>
       {icons[status] || icons.pending}
       {status}
+    </span>
+  )
+}
+
+function NegotiationStatusBadge({
+  negotiation,
+}: {
+  negotiation: DashboardData["negotiations"][number]
+}) {
+  const presentation = getNegotiationLifecyclePresentation({
+    normalizedStatus: negotiation.status as "awaiting_provider" | "awaiting_consumer" | "accepted" | "rejected" | "cancelled",
+    isAwaitingProvider: negotiation.isAwaitingProvider,
+    isAwaitingConsumer: negotiation.isAwaitingConsumer,
+    isDeliveryOpen: negotiation.isDeliveryOpen,
+    isClosedFailed: negotiation.isClosedFailed,
+  })
+
+  const styles =
+    presentation.tone === "success"
+      ? "bg-green-500/10 text-green-400 border-green-500/20"
+      : presentation.tone === "danger"
+        ? "bg-red-500/10 text-red-400 border-red-500/20"
+        : "bg-blue-500/10 text-blue-400 border-blue-500/20"
+
+  const icon =
+    presentation.tone === "success" ? (
+      <CheckCircle2 className="h-3 w-3" />
+    ) : presentation.tone === "danger" ? (
+      <XCircle className="h-3 w-3" />
+    ) : negotiation.isAwaitingConsumer ? (
+      <ArrowRight className="h-3 w-3" />
+    ) : (
+      <Clock className="h-3 w-3" />
+    )
+
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${styles}`}>
+      {icon}
+      {presentation.label}
     </span>
   )
 }
@@ -552,7 +597,7 @@ export default function DashboardPage() {
                         </p>
                       </div>
                     </div>
-                    <StatusBadge status={neg.status} />
+                    <NegotiationStatusBadge negotiation={neg} />
                   </div>
 
                   {/* Proposals Timeline */}
@@ -561,11 +606,11 @@ export default function DashboardPage() {
                       <div key={idx} className="flex gap-3">
                         <div className="flex flex-col items-center">
                           <div className={`w-3 h-3 rounded-full ${
-                            idx === proposals.length - 1 && neg.status === 'accepted'
+                            idx === proposals.length - 1 && neg.isDeliveryOpen
                               ? 'bg-green-500'
-                              : idx === proposals.length - 1 && neg.status === 'rejected'
-                              ? 'bg-red-500'
-                              : 'bg-blue-500'
+                              : idx === proposals.length - 1 && neg.isClosedFailed
+                                ? 'bg-red-500'
+                                : 'bg-blue-500'
                           }`} />
                           {idx < proposals.length - 1 && (
                             <div className="w-0.5 h-full bg-white/10 min-h-[20px]" />
@@ -603,7 +648,7 @@ export default function DashboardPage() {
                   </div>
 
                   {/* Final Terms */}
-                  {neg.finalTerms && neg.status === 'accepted' && (
+                  {neg.finalTerms && neg.isDeliveryOpen && (
                     <div className="mt-3 p-3 bg-green-500/5 border border-green-500/20 rounded-lg">
                       <div className="flex items-center gap-2 mb-1">
                         <CheckCircle2 className="h-4 w-4 text-green-400" />

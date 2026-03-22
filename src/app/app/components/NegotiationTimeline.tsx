@@ -2,43 +2,40 @@
 
 import { Check, Loader2, Clock, MessageSquare, HandMetal } from "lucide-react"
 import type { Negotiation } from "../lib/adp-client"
+import { getNegotiationLifecycle } from "@/lib/adp-v2/negotiation-lifecycle"
 
 interface NegotiationTimelineProps {
   negotiation: Negotiation
 }
 
 const statusSteps = [
-  { key: "sent", label: "Offerte aangevraagd" },
-  { key: "received", label: "Offerte ontvangen" },
-  { key: "decision", label: "Jouw keuze" },
-  { key: "done", label: "Afgerond" },
+  { key: "sent", label: "Quote requested" },
+  { key: "received", label: "Provider response" },
+  { key: "decision", label: "Decision" },
+  { key: "done", label: "Delivery" },
 ]
 
 function getStepStatus(negotiation: Negotiation, stepKey: string) {
-  const status = negotiation.status
+  const lifecycle = getNegotiationLifecycle(negotiation)
   const stepIndex = statusSteps.findIndex((s) => s.key === stepKey)
 
-  // Deal is done (accepted or completed) → all green
-  if (status === "completed" || status === "accepted") {
-    return "done"
-  }
-  // Deal rejected/cancelled
-  if (status === "rejected" || status === "cancelled") {
+  if (lifecycle.isClosedFailed) {
     if (stepIndex <= 2) return stepIndex <= 1 ? "done" : "failed"
     return "failed"
   }
-  // Proposal received → consumer needs to decide
-  if (status === "proposal_sent") {
-    if (stepIndex <= 1) return "done"
-    if (stepIndex === 2) return "waiting" // consumer must act
-    return "pending"
-  }
-  if (status === "counter_proposed") {
+
+  if (lifecycle.isDeliveryOpen) {
     if (stepIndex <= 2) return "done"
+    return "active"
+  }
+
+  if (lifecycle.isAwaitingConsumer) {
+    if (stepIndex <= 1) return "done"
+    if (stepIndex === 2) return "waiting"
     return "pending"
   }
-  // Still waiting for provider response
-  if (status === "pending" || status === "initiated") {
+
+  if (lifecycle.isAwaitingProvider) {
     if (stepIndex === 0) return "done"
     if (stepIndex === 1) return "active"
     return "pending"
@@ -47,6 +44,8 @@ function getStepStatus(negotiation: Negotiation, stepKey: string) {
 }
 
 export default function NegotiationTimeline({ negotiation }: NegotiationTimelineProps) {
+  const transcript = negotiation.transcript ?? []
+
   return (
     <div className="space-y-0">
       {statusSteps.map((step, i) => {
@@ -109,22 +108,24 @@ export default function NegotiationTimeline({ negotiation }: NegotiationTimeline
         )
       })}
 
-      {/* Rounds */}
-      {negotiation.rounds && negotiation.rounds.length > 0 && (
+      {/* Transcript */}
+      {transcript.length > 0 && (
         <div className="mt-4 space-y-2">
-          <p className="text-xs text-white/30 font-medium uppercase tracking-wider">Onderhandeling</p>
-          {negotiation.rounds.map((round, i) => (
-            <div key={i} className="flex items-start gap-2 text-sm">
+          <p className="text-xs text-white/30 font-medium uppercase tracking-wider">Negotiation</p>
+          {transcript.map((entry) => (
+            <div key={entry.id} className="flex items-start gap-2 text-sm">
               <MessageSquare className="w-3.5 h-3.5 text-white/20 mt-0.5 shrink-0" />
               <div>
-                <span className="text-white/50">{round.by === negotiation.initiatorDid ? "Jij" : "Aanbieder"}: </span>
+                <span className="text-white/50">{entry.by === negotiation.initiatorDid ? "You" : "Provider"}: </span>
                 <span className="text-white/70">
-                  {round.action === "accept" && "Geaccepteerd"}
-                  {round.action === "reject" && "Afgewezen"}
-                  {round.action === "counter" && `Tegenvoorstel: €${(round.price / 100).toFixed(2)}`}
-                  {round.action === "propose" && `Voorstel: €${(round.price / 100).toFixed(2)}`}
+                  {entry.action === "accept" && "Accepted"}
+                  {entry.action === "reject" && "Rejected"}
+                  {entry.action === "counter" && typeof entry.price === "number" && `Counter-offer: €${(entry.price / 100).toFixed(2)}`}
+                  {entry.action === "propose" && typeof entry.price === "number" && `Proposal: €${(entry.price / 100).toFixed(2)}`}
+                  {entry.action === "delivery_offer" && "Sent an offer"}
+                  {entry.action === "delivery_reply" && "Replied to the offer"}
                 </span>
-                {round.message && <p className="text-white/30 text-xs mt-0.5">{round.message}</p>}
+                {entry.message && <p className="text-white/30 text-xs mt-0.5">{entry.message}</p>}
               </div>
             </div>
           ))}

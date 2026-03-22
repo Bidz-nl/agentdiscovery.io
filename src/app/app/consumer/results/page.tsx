@@ -10,9 +10,8 @@ import ADPClient from "../../lib/adp-client"
 function ResultsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { agentIdentity, protocolSession, searchResults, postcode, lastSearch } = useAgentStore()
+  const { agentIdentity, protocolSession, setProtocolSession, searchResults, postcode, lastSearch } = useAgentStore()
   const consumerDid = agentIdentity.did
-  const hasProtocolSession = Boolean(protocolSession.sessionId)
 
   const capabilityId = searchParams.get("capabilityId")
   const agentDid = searchParams.get("agentDid")
@@ -29,14 +28,51 @@ function ResultsContent() {
   const [orderDetails, setOrderDetails] = useState(lastSearch || "")
   const [orderQuantity, setOrderQuantity] = useState("1")
   const [orderNotes, setOrderNotes] = useState("")
-  const canEngage = Boolean(match && consumerDid && hasProtocolSession)
+  const canEngage = Boolean(match && consumerDid)
+
+  const createFreshHandshakeSession = async (): Promise<string | null> => {
+    if (!consumerDid) return null
+    try {
+      const res = await fetch("/api/adp/v2/handshake", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          did: consumerDid,
+          protocol_version: "2.0",
+          role: "consumer",
+          supported_versions: ["2.0"],
+          supported_modes: ["negotiate"],
+          authority_digest: {},
+          nonce: crypto.randomUUID(),
+          timestamp: new Date().toISOString(),
+        }),
+      })
+      if (!res.ok) return null
+      const data = await res.json()
+      const sessionId = data.session_id as string
+      setProtocolSession({ sessionId, trustLevel: "provisional", expiresAt: data.expires_at })
+      return sessionId
+    } catch {
+      return null
+    }
+  }
+
+  const ensureProtocolSession = async (): Promise<string | null> => {
+    if (!protocolSession.sessionId) return createFreshHandshakeSession()
+
+    // Verify the stored session is still alive (in-memory sessions are lost on server restart)
+    try {
+      const res = await fetch(`/api/adp/v2/handshake/${protocolSession.sessionId}`)
+      if (res.ok) return protocolSession.sessionId
+    } catch {
+      // fall through to create new
+    }
+
+    return createFreshHandshakeSession()
+  }
 
   const handleEngage = async () => {
     if (!match || !consumerDid) return
-    if (!protocolSession.sessionId) {
-      setError("Een actieve protocolsessie is vereist voordat je een offerte kunt aanvragen.")
-      return
-    }
 
     setIsEngaging(true)
     setError("")
@@ -46,7 +82,13 @@ function ResultsContent() {
       const requestAgentDid = provider.did
 
       if (!requestAgentDid) {
-        setError("Doelagent niet gevonden")
+        setError("Target agent not found")
+        return
+      }
+
+      const sessionId = await ensureProtocolSession()
+      if (!sessionId) {
+        setError("Could not open a protocol session. Try again.")
         return
       }
 
@@ -55,13 +97,13 @@ function ResultsContent() {
       // Build order specification message
       const orderSpec = [
         orderDetails.trim(),
-        orderQuantity !== "1" ? `Aantal: ${orderQuantity}` : "",
-        orderNotes.trim() ? `Opmerking: ${orderNotes.trim()}` : "",
+        orderQuantity !== "1" ? `Quantity: ${orderQuantity}` : "",
+        orderNotes.trim() ? `Note: ${orderNotes.trim()}` : "",
       ].filter(Boolean).join(" | ")
 
       const response = await client.engage({
         agentDid: requestAgentDid,
-        session_id: protocolSession.sessionId || undefined,
+        session_id: sessionId,
         query: orderSpec || lastSearch || match.capability?.title || 'service request',
         category: match.capability?.category || 'all',
         postcode: postcode || undefined,
@@ -77,7 +119,7 @@ function ResultsContent() {
         router.push(`/app/consumer/order/${response.negotiation.id}`)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Kon geen contact opnemen. Probeer opnieuw.")
+      setError(err instanceof Error ? err.message : "Could not get in touch. Try again.")
     } finally {
       setIsEngaging(false)
     }
@@ -86,12 +128,12 @@ function ResultsContent() {
   if (!match) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen px-6">
-        <p className="text-white/40">Resultaat niet gevonden</p>
+        <p className="text-white/40">Result not found</p>
         <button
           onClick={() => router.back()}
           className="mt-4 text-blue-400 text-sm"
         >
-          Terug naar resultaten
+          Back to results
         </button>
       </div>
     )
@@ -99,24 +141,25 @@ function ResultsContent() {
 
   const agent = match.agent || match.provider || {}
   const price = (match.capability?.pricing || {}) as { askingPrice?: number; currency?: string; negotiable?: boolean }
-  const priceDisplay = price?.askingPrice ? `€${(price.askingPrice / 100).toFixed(2)}` : "Op aanvraag"
+  const priceDisplay = price?.askingPrice ? `€${(price.askingPrice / 100).toFixed(2)}` : "On request"
   const reputation = parseFloat(agent.reputationScore || "0")
   const rawScore = match.matchScore ?? match.relevanceScore ?? 0
   const score = Math.round(rawScore * 100)
   const specs = (match.capability?.specifications || {}) as Record<string, unknown>
 
   return (
-    <div className="flex flex-col min-h-screen px-4 pt-12 pb-24">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <button
-          onClick={() => router.back()}
-          className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5 text-white/60" />
-        </button>
-        <h1 className="text-lg font-semibold truncate flex-1">{match.capability?.title}</h1>
-      </div>
+    <div className="min-h-screen px-4 pb-24 pt-12">
+      <div className="mx-auto w-full max-w-4xl">
+        {/* Header */}
+        <div className="mb-6 flex items-center gap-3">
+          <button
+            onClick={() => router.back()}
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 transition-colors hover:bg-white/10"
+          >
+            <ArrowLeft className="w-5 h-5 text-white/60" />
+          </button>
+          <h1 className="flex-1 truncate text-lg font-semibold">{match.capability?.title}</h1>
+        </div>
 
       {/* Match score banner */}
       <motion.div
@@ -127,7 +170,7 @@ function ResultsContent() {
             ? "bg-green-500/5 border-green-500/20"
             : score >= 70
             ? "bg-yellow-500/5 border-yellow-500/20"
-            : "bg-white/[0.02] border-white/5"
+            : "bg-white/2 border-white/5"
         }`}
       >
         <div className="flex items-center justify-between">
@@ -140,10 +183,10 @@ function ResultsContent() {
             </p>
           </div>
           <div className="text-right">
-            <p className="text-sm text-white/40">Prijs</p>
+            <p className="text-sm text-white/40">Price</p>
             <p className="text-2xl font-bold text-white">{priceDisplay}</p>
             {price?.negotiable && (
-              <p className="text-xs text-blue-400">Onderhandelbaar</p>
+              <p className="text-xs text-blue-400">Negotiable</p>
             )}
           </div>
         </div>
@@ -174,7 +217,7 @@ function ResultsContent() {
                 <MapPin className="w-4 h-4 text-blue-400" />
                 <span className="font-semibold">{Math.round(match.distance)} km</span>
               </div>
-              <p className="text-xs text-white/30">Afstand</p>
+              <p className="text-xs text-white/30">Distance</p>
             </div>
           )}
           <div className="text-center">
@@ -188,7 +231,7 @@ function ResultsContent() {
 
         {agent.totalTransactions > 0 && (
           <p className="text-xs text-white/20 text-center mt-3">
-            {agent.successfulTransactions}/{agent.totalTransactions} transacties succesvol
+            {agent.successfulTransactions}/{agent.totalTransactions} successful transactions
           </p>
         )}
       </motion.div>
@@ -201,7 +244,7 @@ function ResultsContent() {
           transition={{ delay: 0.2 }}
           className="bg-[#111827] border border-white/5 rounded-2xl p-4 mb-4"
         >
-          <h4 className="text-sm font-medium text-white/50 mb-2">Beschrijving</h4>
+          <h4 className="text-sm font-medium text-white/50 mb-2">Description</h4>
           <p className="text-sm text-white/70">{match.capability.description}</p>
         </motion.div>
       )}
@@ -248,7 +291,7 @@ function ResultsContent() {
         className="flex items-center gap-2 text-sm text-white/40 mb-8"
       >
         <Clock className="w-4 h-4" />
-        <span>Beschikbaar</span>
+        <span>Available</span>
       </motion.div>
 
       {/* Order specification */}
@@ -264,7 +307,7 @@ function ResultsContent() {
         >
           <div className="flex items-center gap-2">
             <ShoppingBag className="w-4 h-4 text-blue-400" />
-            <h4 className="text-sm font-medium text-white/70">Wat wil je bestellen?</h4>
+            <h4 className="text-sm font-medium text-white/70">What would you like to order?</h4>
           </div>
           {showOrderForm ? (
             <ChevronUp className="w-4 h-4 text-white/30" />
@@ -276,11 +319,11 @@ function ResultsContent() {
         {showOrderForm && (
           <div className="mt-4 space-y-3">
             <div>
-              <label className="text-xs text-white/30 mb-1 block">Bestelling</label>
+              <label className="text-xs text-white/30 mb-1 block">Order</label>
               <textarea
                 value={orderDetails}
                 onChange={(e) => setOrderDetails(e.target.value)}
-                placeholder="Bijv. '2x Margherita, 1x Quattro Stagioni' of 'Babi Pangang voor 2 personen'"
+                placeholder="E.g. '2x Margherita, 1x Quattro Stagioni' or 'Babi pangang for 2 people'"
                 rows={2}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500/50 resize-none"
               />
@@ -288,7 +331,7 @@ function ResultsContent() {
 
             <div className="flex gap-3">
               <div className="flex-1">
-                <label className="text-xs text-white/30 mb-1 block">Aantal</label>
+                <label className="text-xs text-white/30 mb-1 block">Quantity</label>
                 <select
                   value={orderQuantity}
                   onChange={(e) => setOrderQuantity(e.target.value)}
@@ -302,12 +345,12 @@ function ResultsContent() {
             </div>
 
             <div>
-              <label className="text-xs text-white/30 mb-1 block">Opmerkingen (optioneel)</label>
+              <label className="text-xs text-white/30 mb-1 block">Notes (optional)</label>
               <input
                 type="text"
                 value={orderNotes}
                 onChange={(e) => setOrderNotes(e.target.value)}
-                placeholder="Bijv. 'zonder ui', 'extra pittig', 'bezorgen voor 19:00'"
+                placeholder="E.g. 'no onion', 'extra spicy', 'deliver before 19:00'"
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500/50"
               />
             </div>
@@ -319,11 +362,6 @@ function ResultsContent() {
       <div className="mt-auto">
         {error && (
           <p className="text-red-400 text-sm text-center mb-3">{error}</p>
-        )}
-        {!hasProtocolSession && (
-          <p className="text-sm text-blue-300/80 text-center mb-3">
-            Offerte aanvragen werkt alleen met een actieve protocolsessie. Open eerst een protocolsessie om deze aanbieder te benaderen.
-          </p>
         )}
         <button
           onClick={() => {
@@ -339,28 +377,27 @@ function ResultsContent() {
           {isEngaging ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              Offerte aanvragen...
+              Requesting quote...
             </>
           ) : !orderDetails.trim() ? (
             <>
               <ShoppingBag className="w-4 h-4" />
-              Bestelling specificeren
+              Specify order
             </>
           ) : (
             <>
               <MessageSquare className="w-4 h-4" />
-              Offerte aanvragen
+              Request quote
             </>
           )}
         </button>
         <p className="text-xs text-white/20 text-center mt-2">
-          {!hasProtocolSession
-            ? "Engageren is bewust vergrendeld totdat er een actieve protocolsessie is"
-            : !orderDetails.trim()
-            ? "Geef aan wat je precies wilt bestellen"
-            : "Je agent vraagt een offerte aan — jij beslist daarna"
+          {!orderDetails.trim()
+            ? "Specify what you want to order first"
+            : "Your agent requests a quote — you decide what happens next"
           }
         </p>
+      </div>
       </div>
     </div>
   )

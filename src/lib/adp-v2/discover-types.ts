@@ -1,3 +1,4 @@
+import type { PublicAgentProfileProjection } from '@/lib/adp-v2/agent-profile-types'
 import type { AgentCapability, AgentRole } from '@/lib/adp-v2/agent-types'
 
 export interface DiscoverPayload {
@@ -18,6 +19,7 @@ export interface DiscoverMatch {
   role: AgentRole
   categories?: string[]
   capabilities: AgentCapability[]
+  profile?: PublicAgentProfileProjection
 }
 
 export interface DiscoverCompletedResponse {

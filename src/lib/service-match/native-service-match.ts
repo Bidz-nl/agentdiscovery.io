@@ -133,9 +133,12 @@ export function findNativeServiceMatches(query: NormalizedServiceMatchQuery): Na
     }
   })
 
+  const effectiveKeywords = query.requirements.keywords.filter(
+    (kw) => !query.category || query.category.toLowerCase() === 'all' || kw !== query.category.toLowerCase()
+  )
   const keywordFilteredCandidates =
-    query.requirements.keywords.length > 0
-      ? candidates.filter((candidate) => hasKeywordMatch(candidate, query.requirements.keywords))
+    effectiveKeywords.length > 0
+      ? candidates.filter((candidate) => hasKeywordMatch(candidate, effectiveKeywords))
       : candidates
   const acceptedCandidates =
     query.requirements.keywords.length > 0 && typeof query.budget?.maxAmount === 'number'

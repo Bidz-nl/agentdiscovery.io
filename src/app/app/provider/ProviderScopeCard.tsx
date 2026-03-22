@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { ChevronDown, Loader2 } from 'lucide-react'
 
 import { useProviderScope } from '@/app/app/provider/use-provider-scope'
@@ -14,12 +15,13 @@ export default function ProviderScopeCard({
   redirectTo?: string
 }) {
   const router = useRouter()
-  const { context, isLoading, isSwitching, errorMessage, switchProvider } = useProviderScope(appApiKey)
+  const { context, isLoading, isSwitching, errorMessage, needsReauth, loadContext, switchProvider } = useProviderScope(appApiKey)
   const [selectedProviderDid, setSelectedProviderDid] = useState('')
 
   const authorizedProviderDids = context?.providerScope.authorizedProviderDids ?? []
   const activeProviderDid = context?.providerScope.activeProviderDid ?? null
   const canSwitch = authorizedProviderDids.length > 1
+  const restoreHref = `/app/restore?redirect=${encodeURIComponent(redirectTo)}`
 
   const handleSwitch = async () => {
     const nextProviderDid = selectedProviderDid || activeProviderDid
@@ -32,6 +34,10 @@ export default function ProviderScopeCard({
       router.replace(redirectTo)
       router.refresh()
     } catch {}
+  }
+
+  const handleRetry = async () => {
+    await loadContext()
   }
 
   return (
@@ -74,6 +80,33 @@ export default function ProviderScopeCard({
           </div>
         ) : null}
       </div>
+
+      {!isLoading && !activeProviderDid ? (
+        <div className="mt-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
+          <p className="text-sm font-medium text-amber-100">
+            {needsReauth || !appApiKey ? 'Restore owner session to activate provider scope' : 'Activate provider scope to continue'}
+          </p>
+          <p className="mt-1 text-xs text-amber-100/80">
+            {needsReauth || !appApiKey
+              ? 'This workspace shell is open, but this browser does not currently have a valid provider API session.'
+              : 'Retry provider scope activation or restore the correct provider API key for this bot.'}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link href={restoreHref} className="inline-flex items-center justify-center rounded-xl border border-amber-400/30 bg-amber-400/15 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-400/25">
+              Restore owner session
+            </Link>
+            <button
+              type="button"
+              onClick={handleRetry}
+              disabled={isLoading}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white/80 transition-colors hover:bg-white/10 disabled:opacity-60"
+            >
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Retry scope activation
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {errorMessage ? <p className="mt-2 text-xs text-red-300">{errorMessage}</p> : null}
     </div>

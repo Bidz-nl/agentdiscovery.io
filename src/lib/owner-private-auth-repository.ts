@@ -2,9 +2,10 @@ import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
+import { getDataRoot } from '@/lib/project-paths'
 import type { OwnerAppSession, OwnerPrincipal, OwnerProviderMembership } from '@/lib/owner-private-auth'
 
-const OWNER_PRIVATE_AUTH_STORE_DIRECTORY = path.join(process.cwd(), '.data')
+const OWNER_PRIVATE_AUTH_STORE_DIRECTORY = getDataRoot()
 const OWNER_PRIVATE_AUTH_STORE_FILE = path.join(OWNER_PRIVATE_AUTH_STORE_DIRECTORY, 'owner-private-auth.json')
 const OWNER_APP_SESSION_TTL_MS = 12 * 60 * 60 * 1000
 

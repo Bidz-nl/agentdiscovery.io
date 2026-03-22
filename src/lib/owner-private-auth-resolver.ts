@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 
-import { extractBearerApiKey, hashAgentApiKey, verifyBearerAgentApiKey } from '@/lib/adp-v2/agent-api-key'
+import { extractBearerApiKey, hashAgentApiKey, verifyBearerAgentApiKey, verifyRawAgentApiKey } from '@/lib/adp-v2/agent-api-key'
+import type { AgentCredentialRecord, AgentRecord } from '@/lib/adp-v2/agent-types'
 import type { OwnerPrivateAuthContext } from '@/lib/owner-private-auth'
 import {
   createOwnerProviderMemberships,
@@ -15,13 +16,15 @@ function getCredentialFingerprint(request: NextRequest) {
   return rawApiKey ? `credential-${hashAgentApiKey(rawApiKey).slice(0, 32)}` : null
 }
 
-export async function resolveOwnerPrivateAuthContext(request: NextRequest): Promise<OwnerPrivateAuthContext | null> {
-  const verified = verifyBearerAgentApiKey(request.headers)
-  if (!verified) {
-    return null
-  }
+function getCredentialFingerprintFromApiKey(rawApiKey: string) {
+  const normalizedApiKey = rawApiKey.trim()
+  return normalizedApiKey ? `credential-${hashAgentApiKey(normalizedApiKey).slice(0, 32)}` : null
+}
 
-  const credentialFingerprint = getCredentialFingerprint(request)
+function createOwnerPrivateAuthContext(
+  verified: { agent: AgentRecord; credential: AgentCredentialRecord },
+  credentialFingerprint: string | null
+): OwnerPrivateAuthContext | null {
   if (!credentialFingerprint) {
     return null
   }
@@ -55,7 +58,26 @@ export async function resolveOwnerPrivateAuthContext(request: NextRequest): Prom
   return {
     ownerId: principal.ownerId,
     sessionId: session.sessionId,
+    activeAgentDid: verified.agent.did,
     activeProviderDid: session.activeProviderDid ?? authorizedProviderDids[0],
     authorizedProviderDids,
   }
+}
+
+export async function resolveOwnerPrivateAuthContext(request: NextRequest): Promise<OwnerPrivateAuthContext | null> {
+  const verified = verifyBearerAgentApiKey(request.headers)
+  if (!verified) {
+    return null
+  }
+
+  return createOwnerPrivateAuthContext(verified, getCredentialFingerprint(request))
+}
+
+export function resolveOwnerPrivateAuthContextFromApiKey(rawApiKey: string): OwnerPrivateAuthContext | null {
+  const verified = verifyRawAgentApiKey(rawApiKey)
+  if (!verified) {
+    return null
+  }
+
+  return createOwnerPrivateAuthContext(verified, getCredentialFingerprintFromApiKey(rawApiKey))
 }

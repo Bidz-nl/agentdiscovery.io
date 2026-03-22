@@ -1,0 +1,1 @@
+export const restaurantViewModelsScaffold = true

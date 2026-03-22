@@ -60,6 +60,7 @@ interface OwnerServiceFormProps {
   errorMessage?: string | null
   helperText?: string
   footer?: ReactNode
+  botName?: string
 }
 
 export function OwnerServiceForm({
@@ -71,7 +72,9 @@ export function OwnerServiceForm({
   errorMessage,
   helperText,
   footer,
+  botName,
 }: OwnerServiceFormProps) {
+  const displayName = botName || 'your bot'
   const updateValue = <Key extends keyof OwnerServiceFormValues>(key: Key, value: OwnerServiceFormValues[Key]) => {
     onChange({
       ...values,
@@ -93,33 +96,33 @@ export function OwnerServiceForm({
       ) : null}
 
       <div>
-        <label className="mb-1.5 block text-sm text-white/50">Title</label>
+        <label className="mb-1.5 block text-sm text-white/50">Capability title</label>
         <input
           type="text"
           value={values.title}
           onChange={(event) => updateValue('title', event.target.value)}
-          placeholder="Service title"
+          placeholder="e.g. Product discovery for shoppers"
           className="w-full rounded-xl border border-white/10 bg-[#111827] px-4 py-3 text-white placeholder:text-white/20 focus:border-green-500/50 focus:outline-none transition-colors"
         />
       </div>
 
       <div>
-        <label className="mb-1.5 block text-sm text-white/50">Category</label>
+        <label className="mb-1.5 block text-sm text-white/50">Capability category</label>
         <input
           type="text"
           value={values.category}
           onChange={(event) => updateValue('category', event.target.value)}
-          placeholder="installation, repair, services"
+          placeholder="research, discovery, comparison, analysis"
           className="w-full rounded-xl border border-white/10 bg-[#111827] px-4 py-3 text-white placeholder:text-white/20 focus:border-green-500/50 focus:outline-none transition-colors"
         />
       </div>
 
       <div>
-        <label className="mb-1.5 block text-sm text-white/50">Description</label>
+        <label className="mb-1.5 block text-sm text-white/50">What should other agents use this bot for?</label>
         <textarea
           value={values.description}
           onChange={(event) => updateValue('description', event.target.value)}
-          placeholder="Describe what this service offers"
+          placeholder={`${displayName} helps find products, alternatives, and source links for a product or category query. Use it when you need discovery, not final judgment.`}
           rows={5}
           className="w-full rounded-xl border border-white/10 bg-[#111827] px-4 py-3 text-white placeholder:text-white/20 focus:border-green-500/50 focus:outline-none transition-colors resize-none"
         />
@@ -134,7 +137,7 @@ export function OwnerServiceForm({
             step="0.01"
             value={values.askingPrice}
             onChange={(event) => updateValue('askingPrice', event.target.value)}
-            placeholder="0.00"
+            placeholder="optional"
             className="w-full rounded-xl border border-white/10 bg-[#111827] px-4 py-3 text-white placeholder:text-white/20 focus:border-green-500/50 focus:outline-none transition-colors"
           />
         </div>
@@ -161,8 +164,15 @@ export function OwnerServiceForm({
         Negotiable pricing
       </label>
 
+      <div className="rounded-2xl border border-blue-500/15 bg-blue-500/5 px-4 py-3 text-xs text-blue-100/80">
+        <div className="font-medium text-blue-200">Example for {displayName}</div>
+        <div className="mt-1">Title: Product discovery for shoppers</div>
+        <div className="mt-1">Category: research</div>
+        <div className="mt-1">Description: {displayName} takes a product or category query and returns relevant products, alternatives, and source links to continue the review flow.</div>
+      </div>
+
       <div className="rounded-2xl border border-white/5 bg-white/5 px-4 py-3 text-xs text-white/40">
-        {helperText ?? 'Saving a draft updates your private service record only. Publishing remains a separate action.'}
+        {helperText ?? 'Saving a draft updates your private capability profile only. Publishing remains a separate action, so you can shape the wording before making it discoverable.'}
       </div>
 
       <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">

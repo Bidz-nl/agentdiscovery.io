@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:lifecycle": "node --experimental-strip-types --test test/negotiation-lifecycle.test.ts test/negotiation-lifecycle-write-paths.test.ts",
+    "test:runtime": "node --experimental-strip-types --loader ./test/runtime-test-loader.mjs --test test/agent-runtime.test.ts test/agent-runtime-routes.test.ts",
+    "test:profile": "node --experimental-strip-types --loader ./test/runtime-test-loader.mjs --test test/agent-profile.test.ts test/agent-profile-routes.test.ts",
+    "test:food": "node --experimental-strip-types --loader ./test/runtime-test-loader.mjs --test test/local-food.test.ts test/local-food-routes.test.ts"
   },
   "dependencies": {
     "framer-motion": "^12.33.0",

@@ -7,6 +7,13 @@ import type { MatchResult, Negotiation, InboxItem } from './adp-client'
 export type UserRole = 'consumer' | 'provider' | null
 export type ProtocolTrustLevel = 'provisional' | 'verified' | 'restricted' | null
 
+export interface SavedBot {
+  did: string
+  name: string
+  role: UserRole
+  apiKey: string
+}
+
 interface AgentIdentityState {
   did: string | null
   legacyAgentId: number | null
@@ -59,6 +66,10 @@ interface AgentState {
   // Onboarding
   onboardingComplete: boolean
 
+  // Saved bots (multi-bot switcher)
+  savedBots: SavedBot[]
+  skipAutoRedirect: boolean
+
   // Actions
   setAgentIdentity: (identity: Partial<AgentIdentityState>) => void
   setProtocolSession: (session: Partial<ProtocolSessionState>) => void
@@ -76,6 +87,10 @@ interface AgentState {
   setInbox: (items: InboxItem[]) => void
   setIsOnline: (online: boolean) => void
   clearAgent: () => void
+  saveCurrentBot: () => void
+  switchBot: (did: string) => void
+  removeSavedBot: (did: string) => void
+  clearSkipAutoRedirect: () => void
 }
 
 const initialState = {
@@ -109,6 +124,8 @@ const initialState = {
   inbox: [],
   isOnline: true,
   onboardingComplete: false,
+  savedBots: [],
+  skipAutoRedirect: false,
 }
 
 export const useAgentStore = create<AgentState>()(
@@ -183,6 +200,48 @@ export const useAgentStore = create<AgentState>()(
       setInbox: (inbox) => set({ inbox }),
       setIsOnline: (isOnline) => set({ isOnline }),
       clearAgent: () => set(initialState),
+      saveCurrentBot: () =>
+        set((state) => {
+          if (!state.did || !state.appSession.apiKey || !state.name) return {}
+          const bot: SavedBot = {
+            did: state.did,
+            name: state.name,
+            role: state.role,
+            apiKey: state.appSession.apiKey,
+          }
+          const existing = state.savedBots.filter((b) => b.did !== bot.did)
+          return { savedBots: [...existing, bot] }
+        }),
+      switchBot: (did) =>
+        set((state) => {
+          const bot = state.savedBots.find((b) => b.did === did)
+          if (!bot) return {}
+          return {
+            did: bot.did,
+            name: bot.name,
+            role: bot.role,
+            apiKey: bot.apiKey,
+            agentIdentity: {
+              did: bot.did,
+              legacyAgentId: state.agentIdentity.legacyAgentId,
+              name: bot.name,
+              role: bot.role,
+            },
+            appSession: { apiKey: bot.apiKey },
+            onboardingComplete: true,
+            skipAutoRedirect: true,
+            // reset transient state
+            lastSearch: '',
+            searchResults: [],
+            activeNegotiations: [],
+            inbox: [],
+          }
+        }),
+      removeSavedBot: (did) =>
+        set((state) => ({
+          savedBots: state.savedBots.filter((b) => b.did !== did),
+        })),
+      clearSkipAutoRedirect: () => set({ skipAutoRedirect: false }),
     }),
     {
       name: 'adp-agent-store',

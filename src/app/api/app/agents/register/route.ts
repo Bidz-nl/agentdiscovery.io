@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+import { sanitizeAgentName, validateAgentNamePolicy } from '@/lib/adp-v2/agent-name-policy'
+import { createOwnerServiceRecord } from '@/lib/owner-service-repository'
 import { registerNativeAgent } from '@/lib/adp-v2/agent-registration-service'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -20,6 +22,30 @@ function toNativeAgentRole(agentType: unknown) {
   }
 
   return null
+}
+
+function toOwnerServiceRequest(
+  body: Record<string, unknown>,
+  role: 'consumer' | 'provider' | 'broker'
+) {
+  if (role !== 'provider' || !isRecord(body.capability)) {
+    return null
+  }
+
+  const capability = body.capability
+  const pricing = isRecord(capability.pricing) ? capability.pricing : null
+  const trimmedDescription = typeof body.description === 'string' ? body.description.trim() : ''
+
+  return {
+    title: typeof capability.title === 'string' ? capability.title.trim() : '',
+    category: typeof capability.category === 'string' ? capability.category.trim() : 'services',
+    description: trimmedDescription || null,
+    pricingSummary: {
+      askingPrice: typeof pricing?.askingPrice === 'number' ? pricing.askingPrice : null,
+      currency: typeof pricing?.currency === 'string' ? pricing.currency.trim().toUpperCase() : null,
+      negotiable: typeof pricing?.negotiable === 'boolean' ? pricing.negotiable : null,
+    },
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -65,16 +91,32 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  const normalizedName = sanitizeAgentName(body.name)
+  const nameError = validateAgentNamePolicy(normalizedName)
+  if (nameError) {
+    return NextResponse.json(
+      {
+        error: nameError,
+      },
+      { status: nameError.code === 'AGENT_NAME_TAKEN' ? 409 : 400 }
+    )
+  }
+
   const authorityBoundaries =
     body.authorityBoundaries && isRecord(body.authorityBoundaries) ? body.authorityBoundaries : {}
   const endpoints = body.endpoints && isRecord(body.endpoints) ? body.endpoints : {}
   const registration = registerNativeAgent({
-    name: body.name.trim(),
+    name: normalizedName,
     role,
     description: typeof body.description === 'string' ? body.description.trim() : undefined,
     supported_protocol_versions: ['2.0'],
     authority_summary: authorityBoundaries,
   })
+  const ownerServiceInput = toOwnerServiceRequest(body, role)
+  const createdService =
+    ownerServiceInput && (ownerServiceInput.title || ownerServiceInput.category || ownerServiceInput.description)
+      ? createOwnerServiceRecord(registration.agent.did, ownerServiceInput)
+      : null
 
   return NextResponse.json({
     agent: {
@@ -90,6 +132,18 @@ export async function POST(request: NextRequest) {
       createdAt: registration.agent.createdAt,
     },
     apiKey: registration.apiKey,
+    ...(createdService
+      ? {
+          capability: {
+            id: createdService.id,
+            category: createdService.category,
+            title: createdService.title,
+            description: createdService.description,
+            status: 'draft',
+            note: 'Private capability draft created during registration',
+          },
+        }
+      : {}),
     instructions: {
       next_steps: [
         'Store the API key securely',

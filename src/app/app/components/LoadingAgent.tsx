@@ -5,10 +5,10 @@ import { Bot, Check, Loader2 } from "lucide-react"
 import { useEffect, useState } from "react"
 
 const steps = [
-  { label: "Intent aangemaakt", delay: 400 },
-  { label: "ADP Registry bevraagd", delay: 800 },
-  { label: "Matching met agents...", delay: 1500 },
-  { label: "Resultaten gevonden", delay: 2200 },
+  { label: "Intent created", delay: 400 },
+  { label: "ADP registry queried", delay: 800 },
+  { label: "Matching with agents...", delay: 1500 },
+  { label: "Results found", delay: 2200 },
 ]
 
 interface LoadingAgentProps {
@@ -49,7 +49,7 @@ export default function LoadingAgent({ isLoading, matchCount }: LoadingAgentProp
         <Bot className="w-8 h-8 text-blue-400" />
       </motion.div>
 
-      <p className="text-white/60 text-sm mb-6">Je agent is aan het zoeken...</p>
+      <p className="text-white/60 text-sm mb-6">Your agent is searching...</p>
 
       <div className="space-y-3 w-full max-w-xs">
         <AnimatePresence>
@@ -73,7 +73,7 @@ export default function LoadingAgent({ isLoading, matchCount }: LoadingAgentProp
               )}
               <span className={`text-sm ${currentStep > i ? "text-white/70" : "text-white/30"}`}>
                 {i === steps.length - 1 && matchCount !== undefined && currentStep > i
-                  ? `${matchCount} resultaten gevonden`
+                  ? `${matchCount} results found`
                   : step.label}
               </span>
             </motion.div>

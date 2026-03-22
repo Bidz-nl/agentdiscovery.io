@@ -13,6 +13,22 @@ export type NativeNegotiationRound = {
   at: string
 }
 
+export type DeliveryMessage = {
+  by: string
+  message: string
+  at: string
+}
+
+export type NativeNegotiationTranscriptEntry = {
+  id: string
+  kind: 'round' | 'message'
+  action: string
+  by: string
+  message: string
+  price?: number
+  at: string
+}
+
 export type NativeNegotiationRecord = {
   id: number
   source: 'native'
@@ -25,6 +41,9 @@ export type NativeNegotiationRecord = {
   rounds: NativeNegotiationRound[]
   createdAt: string
   updatedAt: string
+  deliveryPayload?: string
+  deliveryMessages?: DeliveryMessage[]
+  transcript?: NativeNegotiationTranscriptEntry[]
 }
 
 export type NativeNegotiationEvent = {
@@ -96,6 +115,113 @@ function isNativeNegotiationRound(value: NativeNegotiationRound | null): value i
   return Boolean(value)
 }
 
+function toNativeNegotiationTranscriptEntry(value: unknown): NativeNegotiationTranscriptEntry | null {
+  if (!isRecord(value)) {
+    return null
+  }
+
+  if (
+    typeof value.id !== 'string' ||
+    (value.kind !== 'round' && value.kind !== 'message') ||
+    typeof value.action !== 'string' ||
+    typeof value.by !== 'string' ||
+    typeof value.message !== 'string' ||
+    typeof value.at !== 'string'
+  ) {
+    return null
+  }
+
+  if (value.price !== undefined && (typeof value.price !== 'number' || !Number.isFinite(value.price))) {
+    return null
+  }
+
+  return {
+    id: value.id,
+    kind: value.kind,
+    action: value.action,
+    by: value.by,
+    message: value.message,
+    ...(typeof value.price === 'number' ? { price: value.price } : {}),
+    at: value.at,
+  }
+}
+
+function isNativeNegotiationTranscriptEntry(value: NativeNegotiationTranscriptEntry | null): value is NativeNegotiationTranscriptEntry {
+  return Boolean(value)
+}
+
+export function buildNativeNegotiationTranscript(record: Pick<NativeNegotiationRecord, 'initiatorDid' | 'responderDid' | 'rounds' | 'deliveryMessages'>): NativeNegotiationTranscriptEntry[] {
+  const roundEntries = record.rounds.map((round) => ({
+    id: `round-${round.round}`,
+    kind: 'round' as const,
+    action: round.action,
+    by: round.by,
+    message: round.message,
+    price: round.price,
+    at: round.at,
+  }))
+
+  const messageEntries = (record.deliveryMessages ?? []).map((message, index) => ({
+    id: `message-${index + 1}`,
+    kind: 'message' as const,
+    action: message.by === record.responderDid ? 'delivery_offer' : 'delivery_reply',
+    by: message.by,
+    message: message.message,
+    at: message.at,
+  }))
+
+  return [...roundEntries, ...messageEntries].sort((left, right) => {
+    const leftAt = Date.parse(left.at)
+    const rightAt = Date.parse(right.at)
+    if (leftAt === rightAt) {
+      return left.id.localeCompare(right.id)
+    }
+    return leftAt - rightAt
+  })
+}
+
+function buildRoundsFromTranscript(transcript: NativeNegotiationTranscriptEntry[]): NativeNegotiationRound[] {
+  return transcript
+    .filter((entry) => entry.kind === 'round')
+    .map((entry, index) => ({
+      round: index + 1,
+      action: entry.action,
+      price: typeof entry.price === 'number' ? entry.price : 0,
+      message: entry.message,
+      by: entry.by,
+      at: entry.at,
+    }))
+}
+
+function buildDeliveryMessagesFromTranscript(transcript: NativeNegotiationTranscriptEntry[]): DeliveryMessage[] {
+  return transcript
+    .filter((entry) => entry.kind === 'message')
+    .map((entry) => ({
+      by: entry.by,
+      message: entry.message,
+      at: entry.at,
+    }))
+}
+
+function normalizeNativeNegotiationRecord(record: NativeNegotiationRecord): NativeNegotiationRecord {
+  const transcript =
+    Array.isArray(record.transcript) && record.transcript.length > 0
+      ? record.transcript
+      : buildNativeNegotiationTranscript(record)
+  const rounds = buildRoundsFromTranscript(transcript)
+  const deliveryMessages = buildDeliveryMessagesFromTranscript(transcript)
+  const latestProviderMessage =
+    [...deliveryMessages].reverse().find((message) => message.by === record.responderDid)?.message ?? record.deliveryPayload
+
+  return {
+    ...record,
+    rounds,
+    deliveryPayload: latestProviderMessage,
+    deliveryMessages,
+    transcript,
+  }
+}
+
 function toNativeNegotiationRecord(value: unknown): NativeNegotiationRecord | null {
   if (!isRecord(value)) {
     return null
@@ -126,7 +252,7 @@ function toNativeNegotiationRecord(value: unknown): NativeNegotiationRecord | nu
     return null
   }
 
-  return {
+  return normalizeNativeNegotiationRecord({
     id: value.id,
     source: 'native',
     sessionId: value.sessionId,
@@ -138,7 +264,20 @@ function toNativeNegotiationRecord(value: unknown): NativeNegotiationRecord | nu
     rounds,
     createdAt: value.createdAt,
     updatedAt: value.updatedAt,
-  }
+    deliveryPayload: typeof value.deliveryPayload === 'string' ? value.deliveryPayload : undefined,
+    deliveryMessages: Array.isArray(value.deliveryMessages)
+      ? (value.deliveryMessages as unknown[]).filter(
+          (m): m is DeliveryMessage =>
+            isRecord(m) &&
+            typeof (m as Record<string, unknown>).by === 'string' &&
+            typeof (m as Record<string, unknown>).message === 'string' &&
+            typeof (m as Record<string, unknown>).at === 'string'
+        )
+      : undefined,
+    transcript: Array.isArray(value.transcript)
+      ? value.transcript.map(toNativeNegotiationTranscriptEntry).filter(isNativeNegotiationTranscriptEntry)
+      : undefined,
+  })
 }
 
 function isNativeNegotiationRecord(value: NativeNegotiationRecord | null): value is NativeNegotiationRecord {
@@ -227,11 +366,11 @@ export function createNativeNegotiationRecord(
   initialEvent?: Omit<NativeNegotiationEvent, 'id' | 'negotiationId'>
 ) {
   const store = readNativeNegotiationStore()
-  const record: NativeNegotiationRecord = {
+  const record = normalizeNativeNegotiationRecord({
     id: getNextNegotiationId(store.negotiations),
     source: 'native',
     ...input,
-  }
+  })
 
   const events = initialEvent
     ? [
@@ -253,11 +392,12 @@ export function createNativeNegotiationRecord(
 }
 
 export function getNativeNegotiationRecord(id: number): NativeNegotiationRecord | null {
-  return readNativeNegotiationStore().negotiations.find((record) => record.id === id) ?? null
+  const record = readNativeNegotiationStore().negotiations.find((current) => current.id === id) ?? null
+  return record ? normalizeNativeNegotiationRecord(record) : null
 }
 
 export function listNativeNegotiationRecords() {
-  return readNativeNegotiationStore().negotiations
+  return readNativeNegotiationStore().negotiations.map(normalizeNativeNegotiationRecord)
 }
 
 export function listNativeNegotiationEvents(negotiationId: number) {
@@ -276,7 +416,7 @@ export function updateNativeNegotiationRecord(
     return null
   }
 
-  const updated = updater(existing)
+  const updated = normalizeNativeNegotiationRecord(updater(normalizeNativeNegotiationRecord(existing)))
   const events = nextEvent
     ? [
         ...store.events,

@@ -1,3 +1,4 @@
+import { getPublicAgentProfileProjection } from '@/lib/adp-v2/agent-profile-service'
 import { listAgentRecords } from '@/lib/adp-v2/agent-record-repository'
 import { listOwnerServiceRecords } from '@/lib/owner-service-repository'
 import type {
@@ -61,6 +62,7 @@ export function findDiscoverMatches(discover: DiscoverPayload): DiscoverMatch[] 
       role: agent.role,
       categories,
       capabilities,
+      profile: getPublicAgentProfileProjection(agent.did) ?? undefined,
     }))
 }
 

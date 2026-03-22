@@ -2,7 +2,13 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import path from 'node:path'
 
 import { getDataRoot } from '@/lib/project-paths'
-import type { AgentRecord, AgentRole, AgentStatus } from '@/lib/adp-v2/agent-types'
+import type {
+  AgentRecord,
+  AgentRole,
+  AgentRuntimeMode,
+  AgentRuntimeStatus,
+  AgentStatus,
+} from '@/lib/adp-v2/agent-types'
 
 type AgentStoreFile = {
   agents: AgentRecord[]
@@ -31,6 +37,14 @@ function isAgentRole(value: unknown): value is AgentRole {
 
 function isAgentStatus(value: unknown): value is AgentStatus {
   return value === 'active' || value === 'disabled'
+}
+
+function isAgentRuntimeMode(value: unknown): value is AgentRuntimeMode {
+  return value === 'manual' || value === 'hosted'
+}
+
+function isAgentRuntimeStatus(value: unknown): value is AgentRuntimeStatus {
+  return value === 'needs_setup' || value === 'ready' || value === 'disabled'
 }
 
 function isStringArray(value: unknown): value is string[] {
@@ -66,6 +80,13 @@ function toAgentRecord(value: unknown): AgentRecord | null {
     return null
   }
 
+  const runtimeMode = isAgentRuntimeMode(value.runtimeMode) ? value.runtimeMode : 'manual'
+  const runtimeStatus = isAgentRuntimeStatus(value.runtimeStatus) ? value.runtimeStatus : 'needs_setup'
+  const preferredProvider =
+    value.preferredProvider === 'openai' || value.preferredProvider === 'anthropic'
+      ? value.preferredProvider
+      : null
+
   return {
     id: value.id,
     did: value.did.trim(),
@@ -75,6 +96,9 @@ function toAgentRecord(value: unknown): AgentRecord | null {
     status: value.status,
     supportedProtocolVersions: value.supportedProtocolVersions.map((version) => version.trim()),
     authoritySummary: value.authoritySummary,
+    runtimeMode,
+    runtimeStatus,
+    preferredProvider,
     createdAt: value.createdAt,
     updatedAt: value.updatedAt,
   }
@@ -140,6 +164,63 @@ export function getAgentRecordByDid(did: string): AgentRecord | null {
   return readAgentStore().agents.find((record) => record.did === did) ?? null
 }
 
+export function getAgentRecordByName(name: string): AgentRecord | null {
+  const normalizedName = name.trim().toLowerCase()
+  if (!normalizedName) {
+    return null
+  }
+
+  return (
+    readAgentStore().agents.find((record) => record.name.trim().toLowerCase() === normalizedName) ?? null
+  )
+}
+
+export function updateAgentRecordName(did: string, name: string): AgentRecord | null {
+  const store = readAgentStore()
+  const current = store.agents.find((record) => record.did === did)
+  if (!current) {
+    return null
+  }
+
+  const updated: AgentRecord = {
+    ...current,
+    name: name.trim(),
+    updatedAt: new Date().toISOString(),
+  }
+
+  writeAgentStore({
+    agents: store.agents.map((record) => (record.did === did ? updated : record)),
+  })
+
+  return updated
+}
+
 export function listAgentRecords(): AgentRecord[] {
   return readAgentStore().agents
+}
+
+export function updateAgentRuntimeConfiguration(
+  did: string,
+  input: Partial<Pick<AgentRecord, 'runtimeMode' | 'runtimeStatus' | 'preferredProvider'>>
+): AgentRecord | null {
+  const store = readAgentStore()
+  const current = store.agents.find((record) => record.did === did)
+
+  if (!current) {
+    return null
+  }
+
+  const updated: AgentRecord = {
+    ...current,
+    runtimeMode: input.runtimeMode ?? current.runtimeMode,
+    runtimeStatus: input.runtimeStatus ?? current.runtimeStatus,
+    preferredProvider: input.preferredProvider ?? current.preferredProvider,
+    updatedAt: new Date().toISOString(),
+  }
+
+  writeAgentStore({
+    agents: store.agents.map((record) => (record.did === did ? updated : record)),
+  })
+
+  return updated
 }

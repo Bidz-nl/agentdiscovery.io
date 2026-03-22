@@ -23,7 +23,7 @@
 import crypto from "node:crypto"
 
 // ── Config ──────────────────────────────────────────────────────
-const ADP_DASHBOARD_URL = "https://www.bidz.nl/api/adp/v1/dashboard?summary=true"
+const ADP_DASHBOARD_URL = `${process.env.ADP_BASE_URL || "https://www.agentdiscovery.io"}/api/adp/dashboard?summary=true`
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 const TWITTER_TWEET_URL = "https://api.twitter.com/2/tweets"
 

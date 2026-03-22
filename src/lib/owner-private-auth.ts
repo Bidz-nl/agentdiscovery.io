@@ -27,6 +27,7 @@ export interface OwnerAppSession {
 export interface OwnerPrivateAuthContext {
   ownerId: string
   sessionId: string
+  activeAgentDid: string
   activeProviderDid: string
   authorizedProviderDids: string[]
 }

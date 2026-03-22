@@ -1,0 +1,1 @@
+export const providerWorkspaceComponentsScaffold = true

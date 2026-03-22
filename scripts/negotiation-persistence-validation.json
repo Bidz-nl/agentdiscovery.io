@@ -1,0 +1,61 @@
+{
+  "negotiationId": 1000000,
+  "sessionId": "hs_15a49718805b485ebbae858961457343",
+  "providerDid": "did:adp:seed:pizza-roma-utrecht",
+  "consumerDid": "did:adp:test:persistence-consumer-8795a172",
+  "preRestart": {
+    "handshakeStatus": 201,
+    "engageStatus": 200,
+    "compatStatus": 200,
+    "resolverStatus": 200,
+    "compatDetail": {
+      "negotiation": {
+        "id": 1000000,
+        "source": "compat_session",
+        "sessionId": "hs_15a49718805b485ebbae858961457343",
+        "status": "initiated",
+        "initiatorDid": "did:adp:test:persistence-consumer-8795a172",
+        "responderDid": "did:adp:seed:pizza-roma-utrecht",
+        "capabilityId": 123456,
+        "currentPrice": 1200,
+        "rounds": [
+          {
+            "round": 1,
+            "action": "propose",
+            "price": 1200,
+            "message": "Persistence validation request",
+            "by": "did:adp:test:persistence-consumer-8795a172",
+            "at": "2026-03-13T17:01:15.910Z"
+          }
+        ],
+        "createdAt": "2026-03-13T17:01:15.910Z",
+        "updatedAt": "2026-03-13T17:01:15.910Z"
+      }
+    },
+    "resolverDetail": {
+      "negotiation": {
+        "id": 1000000,
+        "source": "compat_session",
+        "sessionId": "hs_15a49718805b485ebbae858961457343",
+        "status": "initiated",
+        "initiatorDid": "did:adp:test:persistence-consumer-8795a172",
+        "responderDid": "did:adp:seed:pizza-roma-utrecht",
+        "capabilityId": 123456,
+        "currentPrice": 1200,
+        "rounds": [
+          {
+            "round": 1,
+            "action": "propose",
+            "price": 1200,
+            "message": "Persistence validation request",
+            "by": "did:adp:test:persistence-consumer-8795a172",
+            "at": "2026-03-13T17:01:15.910Z"
+          }
+        ],
+        "createdAt": "2026-03-13T17:01:15.910Z",
+        "updatedAt": "2026-03-13T17:01:15.910Z"
+      }
+    },
+    "sameShape": true
+  }
+}

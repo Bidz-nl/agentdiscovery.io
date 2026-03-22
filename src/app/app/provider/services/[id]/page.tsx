@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { AlertCircle, ArrowLeft, ExternalLink, Loader2, RotateCcw, Trash2 } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Loader2, RotateCcw, Trash2 } from 'lucide-react'
 
 import ADPClient from '@/app/app/lib/adp-client'
 import { useAgentStore } from '@/app/app/lib/agent-store'
@@ -22,7 +22,7 @@ function getDisplayStatus(service: OwnerServiceReadModel | null) {
   if (!service) {
     return {
       label: 'Draft only',
-      detail: 'This service exists only as a private draft',
+      detail: 'This capability exists only as a private draft',
       className: 'bg-white/5 text-white/60 border border-white/10',
     }
   }
@@ -30,7 +30,7 @@ function getDisplayStatus(service: OwnerServiceReadModel | null) {
   if (service.status === 'archived') {
     return {
       label: 'Archived',
-      detail: 'This service is retained privately and must be restored before further edits or publication',
+      detail: 'This capability is retained privately and must be restored before further edits or publication',
       className: 'bg-white/5 text-white/60 border border-white/10',
     }
   }
@@ -53,7 +53,7 @@ function getDisplayStatus(service: OwnerServiceReadModel | null) {
 
   return {
     label: 'Draft only',
-    detail: 'This service is private and not yet published',
+    detail: 'This capability is private and not yet published',
     className: 'bg-white/5 text-white/60 border border-white/10',
   }
 }
@@ -80,9 +80,44 @@ function getPublishedDescriptor(service: OwnerServiceReadModel | null) {
     return 'No live publication yet'
   }
 
-  const title = service.title.trim() || 'Untitled service'
+  const title = service.title.trim() || 'Untitled capability'
   const category = service.category.trim() || 'uncategorized'
   return `${title} in ${category}`
+}
+
+function getNextStepContent(service: OwnerServiceReadModel | null, missingPublishFields: string[]) {
+  if (service?.publishedCapabilityKey && service.hasUnpublishedChanges) {
+    return {
+      title: 'Your draft is saved. Decide if the live version should be updated too.',
+      description:
+        'Right now your newest edits are private. Republish when you want other agents to see this updated capability.',
+      accentClassName: 'border-amber-500/20 bg-amber-500/10',
+    }
+  }
+
+  if (service?.publishedCapabilityKey) {
+    return {
+      title: 'Your capability is already live.',
+      description:
+        'You can keep refining the private draft here, or go back to your capability overview to manage the rest of your profile.',
+      accentClassName: 'border-green-500/20 bg-green-500/10',
+    }
+  }
+
+  if (missingPublishFields.length === 0) {
+    return {
+      title: 'Your draft is saved and ready for the next step.',
+      description:
+        'If this wording feels right, publish the draft to make this capability visible to other agents. If not, you can leave it private and continue later.',
+      accentClassName: 'border-green-500/20 bg-green-500/10',
+    }
+  }
+
+  return {
+    title: 'Your draft is saved, but it is not ready to publish yet.',
+    description: `Before publishing, complete: ${missingPublishFields.join(', ')}.`,
+    accentClassName: 'border-white/10 bg-white/5',
+  }
 }
 
 function confirmPermanentDelete(service: Pick<OwnerServiceReadModel, 'title'>) {
@@ -118,7 +153,7 @@ function LoadStateView({
               className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white/75 transition-colors hover:bg-white/10"
             >
               <ArrowLeft className="h-4 w-4" />
-              Back to services
+              Back to capabilities
             </Link>
           </div>
         ) : null}
@@ -130,7 +165,7 @@ function LoadStateView({
 export default function EditOwnerServicePage() {
   const router = useRouter()
   const params = useParams<{ id: string }>()
-  const { appSession } = useAgentStore()
+  const { appSession, name: botName } = useAgentStore()
   const appApiKey = appSession.apiKey
   const [service, setService] = useState<OwnerServiceReadModel | null>(null)
   const [values, setValues] = useState<OwnerServiceFormValues>(() => toOwnerServiceFormValues())
@@ -188,9 +223,10 @@ export default function EditOwnerServicePage() {
   const displayStatus = useMemo(() => getDisplayStatus(service), [service])
   const publishabilityChecks = useMemo(() => getPublishabilityChecks(values), [values])
   const missingPublishFields = useMemo(
-    () => publishabilityChecks.filter((check) => !check.complete).map((check) => check.label.toLowerCase()),
+    () => publishabilityChecks.filter((check) => !check.complete).map((check) => check.label),
     [publishabilityChecks]
   )
+  const nextStepContent = useMemo(() => getNextStepContent(service, missingPublishFields), [service, missingPublishFields])
 
   const withClient = () => {
     if (!appApiKey || !serviceId) {
@@ -209,7 +245,7 @@ export default function EditOwnerServicePage() {
       const response = await client.updateOwnerService(serviceId as string, toOwnerServiceRequest(values))
       setService(response.service)
       setValues(toOwnerServiceFormValues(response.service))
-      setStatusMessage('Private draft saved. Nothing was published')
+      setStatusMessage('Private capability draft saved. Nothing was published')
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to save draft')
     } finally {
@@ -228,9 +264,13 @@ export default function EditOwnerServicePage() {
       const response = await client.publishOwnerService(serviceId)
       setService(response.service)
       setValues(toOwnerServiceFormValues(response.service))
-      setStatusMessage(response.service.hasUnpublishedChanges ? 'Live version republished from your draft' : 'Draft published to the live manifest')
+      setStatusMessage(
+        response.service.hasUnpublishedChanges
+          ? 'Live capability republished from your draft'
+          : 'Capability draft published to the live manifest'
+      )
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Unable to publish service')
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to publish capability')
     } finally {
       setIsPublishing(false)
     }
@@ -247,9 +287,9 @@ export default function EditOwnerServicePage() {
       const response = await client.unpublishOwnerService(serviceId)
       setService(response.service)
       setValues(toOwnerServiceFormValues(response.service))
-      setStatusMessage('Live publication removed. Your private draft is still intact')
+      setStatusMessage('Live publication removed. Your private capability draft is still intact')
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Unable to unpublish service')
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to unpublish capability')
     } finally {
       setIsUnpublishing(false)
     }
@@ -265,9 +305,9 @@ export default function EditOwnerServicePage() {
       const response = await client.restoreOwnerService(serviceId)
       setService(response.service)
       setValues(toOwnerServiceFormValues(response.service))
-      setStatusMessage('Archived service restored to an active private draft')
+      setStatusMessage('Archived capability restored to an active private draft')
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Unable to restore archived service')
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to restore archived capability')
     }
   }
 
@@ -286,7 +326,7 @@ export default function EditOwnerServicePage() {
       await client.deleteOwnerService(serviceId)
       router.replace('/app/provider/services')
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Unable to delete service')
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to delete capability')
     } finally {
       setIsDeleting(false)
     }
@@ -304,7 +344,7 @@ export default function EditOwnerServicePage() {
     return (
       <LoadStateView
         title="Owner session required"
-        description="You need an active owner app session to open this private service."
+        description="You need an active owner app session to open this private capability draft."
       />
     )
   }
@@ -312,8 +352,8 @@ export default function EditOwnerServicePage() {
   if (loadState === 'not_found') {
     return (
       <LoadStateView
-        title="Service not found"
-        description="This private service could not be found in the active owner scope."
+        title="Capability not found"
+        description="This private capability draft could not be found in the active owner scope."
       />
     )
   }
@@ -321,8 +361,8 @@ export default function EditOwnerServicePage() {
   if (loadState === 'error') {
     return (
       <LoadStateView
-        title="Unable to load service"
-        description={errorMessage ?? 'Something went wrong while loading this private service.'}
+        title="Unable to load capability"
+        description={errorMessage ?? 'Something went wrong while loading this private capability draft.'}
       />
     )
   }
@@ -331,245 +371,262 @@ export default function EditOwnerServicePage() {
 
   return (
     <div className="min-h-screen px-4 pb-24 pt-12">
-      <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="mx-auto max-w-6xl space-y-6">
         <div>
-          <div className="mb-6 flex items-start justify-between gap-4">
-            <div>
-              <div className="mb-3 flex items-center gap-3 text-white/40">
-                <Link
-                  href="/app/provider/services"
-                  className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 transition-colors hover:bg-white/10"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Back
-                </Link>
-              </div>
-              <h1 className="text-2xl font-bold">Edit service</h1>
-              <p className="mt-1 text-sm text-white/40">Save your private draft separately from publish and unpublish actions.</p>
-            </div>
+          <div className="mb-3 flex items-center gap-3 text-white/40">
+            <Link
+              href="/app/provider/services"
+              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 transition-colors hover:bg-white/10"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Link>
           </div>
-
-          <div className={`mb-4 rounded-2xl px-4 py-3 text-sm ${displayStatus.className}`}>
-            <div className="font-medium">{displayStatus.label}</div>
-            <div className="mt-1 text-xs text-inherit/80">{displayStatus.detail}</div>
-          </div>
-
-          <div className="mb-4">
-            <ProviderScopeCard appApiKey={appApiKey} redirectTo="/app/provider/services" />
-          </div>
-
-          {service?.publishedCapabilityKey && service.hasUnpublishedChanges ? (
-            <div className="mb-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-              Your live service is still published, but this draft contains unpublished private changes. Use <span className="font-medium">Republish</span> when you want the live manifest to catch up.
-            </div>
-          ) : null}
-
-          {statusMessage ? (
-            <div className="mb-4 rounded-2xl border border-green-500/20 bg-green-500/10 px-4 py-3 text-sm text-green-200">
-              {statusMessage}
-            </div>
-          ) : null}
-
-          {isArchived ? (
-            <div className="mb-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
-              This service is archived. Restore it before editing, publishing, or unpublishing.
-            </div>
-          ) : null}
-
-          <div className="rounded-3xl border border-white/5 bg-[#111827] p-5 sm:p-6">
-            {isArchived ? (
-              <div className="space-y-5">
-                <div className="rounded-2xl border border-white/5 bg-white/5 px-4 py-3 text-xs text-white/40">
-                  Archived services remain private and retain their draft content and publication history, but they are read-only until restored.
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-white/10 bg-[#111827] px-4 py-3">
-                    <div className="text-xs text-white/40">Title</div>
-                    <div className="mt-1 text-sm text-white/80">{values.title || 'Untitled service'}</div>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-[#111827] px-4 py-3">
-                    <div className="text-xs text-white/40">Category</div>
-                    <div className="mt-1 text-sm text-white/80">{values.category || 'No category yet'}</div>
-                  </div>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-[#111827] px-4 py-3">
-                  <div className="text-xs text-white/40">Description</div>
-                  <div className="mt-1 text-sm text-white/80">{values.description || 'No description yet'}</div>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={handleRestore}
-                    disabled={isDeleting}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm font-medium text-blue-300 transition-colors hover:bg-blue-500/20 disabled:border-white/10 disabled:bg-white/5 disabled:text-white/30"
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                    Restore draft
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDelete}
-                    disabled={isDeleting}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-300 transition-colors hover:bg-red-500/20 disabled:border-white/10 disabled:bg-white/5 disabled:text-white/30"
-                  >
-                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                    Delete permanently
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => router.replace('/app/provider/services')}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white/70 transition-colors hover:bg-white/10"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Back to services
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <OwnerServiceForm
-                values={values}
-                onChange={setValues}
-                onSubmit={handleSave}
-                isSubmitting={isSaving}
-                submitLabel="Save draft"
-                errorMessage={errorMessage}
-                footer={
-                  <>
-                    <button
-                      type="button"
-                      onClick={handlePublish}
-                      disabled={isPublishing || isSaving || isUnpublishing || isDeleting}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm font-medium text-green-300 transition-colors hover:bg-green-500/20 disabled:border-white/10 disabled:bg-white/5 disabled:text-white/30"
-                    >
-                      {isPublishing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                      {service?.hasUnpublishedChanges || service?.publishedCapabilityKey ? 'Republish live version' : 'Publish draft'}
-                    </button>
-                    {service?.publishedCapabilityKey ? (
-                      <button
-                        type="button"
-                        onClick={handleUnpublish}
-                        disabled={isUnpublishing || isSaving || isPublishing || isDeleting}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white/70 transition-colors hover:bg-white/10 disabled:text-white/30"
-                      >
-                        {isUnpublishing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                        Unpublish live version
-                      </button>
-                    ) : null}
-                    {!service?.publishedCapabilityKey ? (
-                      <button
-                        type="button"
-                        onClick={handleDelete}
-                        disabled={isDeleting || isSaving || isPublishing || isUnpublishing}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-300 transition-colors hover:bg-red-500/20 disabled:border-white/10 disabled:bg-white/5 disabled:text-white/30"
-                      >
-                        {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                        Delete permanently
-                      </button>
-                    ) : null}
-                  </>
-                }
-              />
-            )}
-          </div>
+          <h1 className="text-2xl font-bold">Edit capability</h1>
+          <p className="mt-1 text-sm text-white/40">
+            Shape how other agents should understand and use this capability. Saving updates the private draft only.
+          </p>
         </div>
 
-        <div className="space-y-4">
-          <div className="rounded-3xl border border-white/5 bg-[#111827] p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-sm font-semibold text-white/80">Current draft state</h2>
-                <p className="mt-1 text-xs text-white/40">These checks only determine whether the current private draft is ready to publish.</p>
-              </div>
-              <span className={`rounded-full px-2.5 py-1 text-[11px] ${missingPublishFields.length > 0 ? 'bg-amber-500/10 text-amber-300' : 'bg-green-500/10 text-green-300'}`}>
-                {missingPublishFields.length > 0 ? `${missingPublishFields.length} missing` : 'Ready to publish'}
-              </span>
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_360px]">
+          <div className="space-y-4">
+            <div className={`rounded-2xl px-4 py-3 text-sm ${displayStatus.className}`}>
+              <div className="font-medium">{displayStatus.label}</div>
+              <div className="mt-1 text-xs text-inherit/80">{displayStatus.detail}</div>
             </div>
-            <div className="mt-4 space-y-3">
-              {publishabilityChecks.map((check) => (
-                <div
-                  key={check.label}
-                  className={`flex items-center justify-between gap-4 rounded-2xl border px-3 py-3 text-sm ${
-                    check.complete ? 'border-green-500/15 bg-green-500/5' : 'border-amber-500/15 bg-amber-500/5'
-                  }`}
-                >
-                  <div>
-                    <span className="block text-white/80">{check.label}</span>
-                    <span className="mt-1 block text-xs text-white/40">
-                      {check.complete ? 'Ready for publish' : `${check.label} is still missing from the draft`}
-                    </span>
+
+            {service?.publishedCapabilityKey && service.hasUnpublishedChanges ? (
+              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+                Your live capability is still published, but this draft contains newer private edits. Use <span className="font-medium">Republish live version</span> when you want the public version to catch up.
+              </div>
+            ) : null}
+
+            {statusMessage ? (
+              <div className="rounded-2xl border border-green-500/20 bg-green-500/10 px-4 py-3 text-sm text-green-200">
+                {statusMessage}
+              </div>
+            ) : null}
+
+            {isArchived ? (
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
+                This capability is archived. Restore it before editing, publishing, or unpublishing.
+              </div>
+            ) : null}
+
+            <div className="rounded-3xl border border-white/5 bg-[#111827] p-5 sm:p-6">
+              {isArchived ? (
+                <div className="space-y-5">
+                  <div className="rounded-2xl border border-white/5 bg-white/5 px-4 py-3 text-xs text-white/40">
+                    Archived capabilities remain private and keep their draft content and publication history, but they are read-only until restored.
                   </div>
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs ${
-                      check.complete ? 'bg-green-500/10 text-green-300' : 'bg-amber-500/10 text-amber-300'
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-white/10 bg-[#111827] px-4 py-3">
+                      <div className="text-xs text-white/40">Capability title</div>
+                      <div className="mt-1 text-sm text-white/80">{values.title || 'Untitled capability'}</div>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-[#111827] px-4 py-3">
+                      <div className="text-xs text-white/40">Capability category</div>
+                      <div className="mt-1 text-sm text-white/80">{values.category || 'No category yet'}</div>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-[#111827] px-4 py-3">
+                    <div className="text-xs text-white/40">What should other agents use this bot for?</div>
+                    <div className="mt-1 text-sm text-white/80">{values.description || 'No description yet'}</div>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={handleRestore}
+                      disabled={isDeleting}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm font-medium text-blue-300 transition-colors hover:bg-blue-500/20 disabled:border-white/10 disabled:bg-white/5 disabled:text-white/30"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      Restore draft
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      disabled={isDeleting}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-300 transition-colors hover:bg-red-500/20 disabled:border-white/10 disabled:bg-white/5 disabled:text-white/30"
+                    >
+                      {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                      Delete permanently
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <OwnerServiceForm
+                  values={values}
+                  onChange={setValues}
+                  onSubmit={handleSave}
+                  botName={botName ?? undefined}
+                  isSubmitting={isSaving}
+                  submitLabel="Save draft"
+                  errorMessage={errorMessage}
+                  helperText="Saving updates only the private capability draft. Publish and unpublish remain separate actions, so you can keep refining the wording first."
+                  footer={
+                    <>
+                      <button
+                        type="button"
+                        onClick={handlePublish}
+                        disabled={isPublishing || isSaving || isUnpublishing || isDeleting}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm font-medium text-green-300 transition-colors hover:bg-green-500/20 disabled:border-white/10 disabled:bg-white/5 disabled:text-white/30"
+                      >
+                        {isPublishing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        {service?.hasUnpublishedChanges || service?.publishedCapabilityKey ? 'Republish live version' : 'Publish draft'}
+                      </button>
+                      {service?.publishedCapabilityKey ? (
+                        <button
+                          type="button"
+                          onClick={handleUnpublish}
+                          disabled={isUnpublishing || isSaving || isPublishing || isDeleting}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white/70 transition-colors hover:bg-white/10 disabled:text-white/30"
+                        >
+                          {isUnpublishing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                          Unpublish live version
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleDelete}
+                          disabled={isDeleting || isSaving || isPublishing || isUnpublishing}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-300 transition-colors hover:bg-red-500/20 disabled:border-white/10 disabled:bg-white/5 disabled:text-white/30"
+                        >
+                          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                          Delete permanently
+                        </button>
+                      )}
+                    </>
+                  }
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-4 xl:sticky xl:top-8 xl:self-start">
+            <ProviderScopeCard appApiKey={appApiKey} redirectTo="/app/provider/services" />
+
+            {!isArchived ? (
+              <div className={`rounded-3xl border p-5 ${nextStepContent.accentClassName}`}>
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-sm font-semibold text-white">What next?</div>
+                    <div className="mt-2 text-sm text-white/90">{nextStepContent.title}</div>
+                    <div className="mt-2 text-sm leading-6 text-white/65">{nextStepContent.description}</div>
+                  </div>
+
+                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                    <div className="rounded-2xl border border-white/10 bg-[#111827]/40 px-3 py-3 text-sm text-white/65">
+                      <div className="font-medium text-white/85">Save draft</div>
+                      <div className="mt-1">Keeps this capability private while you keep shaping the wording.</div>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-[#111827]/40 px-3 py-3 text-sm text-white/65">
+                      <div className="font-medium text-white/85">Publish draft</div>
+                      <div className="mt-1">Makes this capability visible in your live manifest for other agents to discover.</div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    {missingPublishFields.length === 0 ? (
+                      <button
+                        type="button"
+                        onClick={handlePublish}
+                        disabled={isPublishing || isSaving || isUnpublishing || isDeleting}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm font-medium text-green-300 transition-colors hover:bg-green-500/20 disabled:border-white/10 disabled:bg-white/5 disabled:text-white/30"
+                      >
+                        {isPublishing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        {service?.publishedCapabilityKey ? 'Republish live version' : 'Publish draft now'}
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => router.push('/app/provider/services')}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white/75 transition-colors hover:bg-white/10"
+                    >
+                      Back to capabilities
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="rounded-3xl border border-white/5 bg-[#111827] p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-sm font-semibold text-white/80">Publish readiness</h2>
+                  <p className="mt-1 text-xs text-white/40">
+                    These checks only determine whether the current private capability draft is ready to publish.
+                  </p>
+                </div>
+                <span className={`rounded-full px-2.5 py-1 text-[11px] ${missingPublishFields.length > 0 ? 'bg-amber-500/10 text-amber-300' : 'bg-green-500/10 text-green-300'}`}>
+                  {missingPublishFields.length > 0 ? `${missingPublishFields.length} missing` : 'Ready to publish'}
+                </span>
+              </div>
+              <div className="mt-4 space-y-3">
+                {publishabilityChecks.map((check) => (
+                  <div
+                    key={check.label}
+                    className={`flex items-center justify-between gap-4 rounded-2xl border px-3 py-3 text-sm ${
+                      check.complete ? 'border-green-500/15 bg-green-500/5' : 'border-amber-500/15 bg-amber-500/5'
                     }`}
                   >
-                    {check.complete ? 'Ready' : 'Missing'}
-                  </span>
+                    <div>
+                      <span className="block text-white/80">{check.label}</span>
+                      <span className="mt-1 block text-xs text-white/40">
+                        {check.complete ? 'Ready for publish' : `${check.label} is still missing from the draft`}
+                      </span>
+                    </div>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs ${
+                        check.complete ? 'bg-green-500/10 text-green-300' : 'bg-amber-500/10 text-amber-300'
+                      }`}
+                    >
+                      {check.complete ? 'Ready' : 'Missing'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {missingPublishFields.length > 0 ? (
+                <div className="mt-4 rounded-2xl border border-amber-500/15 bg-amber-500/5 px-4 py-3 text-xs text-amber-200">
+                  Missing required publish fields: <span className="font-medium">{missingPublishFields.join(', ')}</span>
                 </div>
-              ))}
+              ) : (
+                <div className="mt-4 rounded-2xl border border-green-500/15 bg-green-500/5 px-4 py-3 text-xs text-green-200">
+                  This capability draft has the minimum required fields for publish.
+                </div>
+              )}
             </div>
-            {missingPublishFields.length > 0 ? (
-              <div className="mt-4 rounded-2xl border border-amber-500/15 bg-amber-500/5 px-4 py-3 text-xs text-amber-200">
-                Missing required publish fields: <span className="font-medium">{missingPublishFields.join(', ')}</span>
-              </div>
-            ) : (
-              <div className="mt-4 rounded-2xl border border-green-500/15 bg-green-500/5 px-4 py-3 text-xs text-green-200">
-                This draft has the minimum required fields for publish.
-              </div>
-            )}
-          </div>
 
-          <div className="rounded-3xl border border-white/5 bg-[#111827] p-5">
-            <div>
-              <h2 className="text-sm font-semibold text-white/80">Current publication state</h2>
-              <p className="mt-1 text-xs text-white/40">This reflects what is currently live in the protocol-visible manifest.</p>
-            </div>
-            <div className="mt-4 space-y-3 text-sm">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-white/40">Current status</span>
-                <span className={`rounded-full px-2.5 py-1 text-xs ${displayStatus.className}`}>{displayStatus.label}</span>
+            <div className="rounded-3xl border border-white/5 bg-[#111827] p-5">
+              <div>
+                <h2 className="text-sm font-semibold text-white/80">Live publication</h2>
+                <p className="mt-1 text-xs text-white/40">
+                  This shows what is currently live in the protocol-visible manifest.
+                </p>
               </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-white/40">Published at</span>
-                <span className="text-right text-white/70">{service?.publishedAt ? new Date(service.publishedAt).toLocaleString() : 'Not published'}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-white/40">Unpublished changes</span>
-                <span className="text-white/70">{service?.hasUnpublishedChanges ? 'Yes' : 'No'}</span>
-              </div>
-              <div className="flex items-start justify-between gap-4">
-                <span className="text-white/40">Capability key</span>
-                <span className="max-w-[180px] wrap-break-word text-right text-white/70">{service?.publishedCapabilityKey ?? 'Not published'}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-white/5 bg-[#111827] p-5">
-            <h2 className="text-sm font-semibold text-white/80">Latest published summary</h2>
-            <div className="mt-4 space-y-3 text-sm">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-white/40">Published descriptor</span>
-                <span className="text-right text-white/70">{getPublishedDescriptor(service)}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-white/40">Published at</span>
-                <span className="text-right text-white/70">{service?.publishedAt ? new Date(service.publishedAt).toLocaleString() : 'No published snapshot yet'}</span>
-              </div>
-              <div className="flex items-start justify-between gap-4">
-                <span className="text-white/40">Capability key</span>
-                <span className="max-w-[180px] wrap-break-word text-right text-white/70">{service?.publishedCapabilityKey ?? 'No published snapshot yet'}</span>
+              <div className="mt-4 space-y-3 text-sm">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-white/40">Current status</span>
+                  <span className={`rounded-full px-2.5 py-1 text-xs ${displayStatus.className}`}>{displayStatus.label}</span>
+                </div>
+                <div className="flex items-start justify-between gap-4">
+                  <span className="text-white/40">Published descriptor</span>
+                  <span className="max-w-[220px] text-right text-white/70">{getPublishedDescriptor(service)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-white/40">Published at</span>
+                  <span className="text-right text-white/70">{service?.publishedAt ? new Date(service.publishedAt).toLocaleString() : 'Not published'}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-white/40">Unpublished changes</span>
+                  <span className="text-white/70">{service?.hasUnpublishedChanges ? 'Yes' : 'No'}</span>
+                </div>
+                <div className="flex items-start justify-between gap-4">
+                  <span className="text-white/40">Capability key</span>
+                  <span className="max-w-[220px] break-all text-right text-white/70">{service?.publishedCapabilityKey ?? 'Not published'}</span>
+                </div>
               </div>
             </div>
-          </div>
-
-          <div className="rounded-3xl border border-white/5 bg-white/5 p-5 text-sm text-white/45">
-            <div className="mb-2 flex items-center gap-2 text-white/70">
-              <ExternalLink className="h-4 w-4" />
-              Projection actions
-            </div>
-            <p>
-              Saving updates only the private draft. Publish and unpublish remain explicit projection actions against the protocol-visible manifest.
-            </p>
           </div>
         </div>
       </div>

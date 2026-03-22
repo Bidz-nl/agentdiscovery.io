@@ -13,6 +13,14 @@ import type {
   OwnerProviderContextResponse,
   SwitchActiveProviderRequest,
 } from '@/lib/owner-private-auth'
+import type {
+  AgentPolicyRecord,
+  AgentRunRecord,
+  AgentRuntimeReadModel,
+  ConnectRuntimeProviderRequest,
+  SandboxRunRequest,
+  UpdateAgentPolicyRequest,
+} from '@/lib/agent-runtime'
 
 function toNegotiationEngagePath() {
   return '/api/app/negotiations/engage'
@@ -86,6 +94,131 @@ export interface AgentResponse {
   }
 }
 
+export interface AgentProfileResponse {
+  agent: {
+    id: number
+    did: string
+    name: string
+    description: string | null
+    role: string
+    updatedAt: string
+  }
+}
+
+export interface OwnerAgentProfileResponse {
+  profile: {
+    id: string
+    agentDid: string
+    status: string
+    version: number
+    identity: {
+      did: string
+      slug: string
+      displayName: string
+      role: string
+      purpose: string
+      summary: string
+      ownerDefinedSpecialty: string[]
+      audience: string[]
+      operatingRegions: string[]
+      languages: string[]
+    }
+    backend: {
+      mode: string
+      provider: string
+      model: string | null
+      modelFamily: string | null
+      adapterVersion: string | null
+    }
+    skills: Array<{
+      key: string
+      name: string
+      summary: string
+      level: string
+      executionMode: string
+      specialtyTags: string[]
+      inputKinds: string[]
+      outputKinds: string[]
+      successSignals: string[]
+      failureBoundaries: string[]
+    }>
+    toolGrants: Array<{
+      toolKey: string
+      title: string
+      mode: string
+      resourceScopes: string[]
+      ownerScopedOnly: boolean
+      requiresApproval: boolean
+      protocolVisible: boolean
+      maxCallsPerRun: number | null
+    }>
+    policyProfile: {
+      autonomyMode: string
+      defaultApprovalMode: string
+      approvalRules: Array<Record<string, unknown>>
+      spendCapUsd: number
+      maxConcurrentActions: number
+      allowExternalSideEffects: boolean
+      allowCrossCounterpartyMemory: boolean
+      escalationChannels: string[]
+    }
+    memoryScope: {
+      mode: string
+      namespaces: string[]
+      retentionDays: number | null
+      storesPreferenceMemory: boolean
+      storesCounterpartyMemory: boolean
+      storesExecutionMemory: boolean
+    }
+    knowledgeSources: Array<{
+      key: string
+      title: string
+      kind: string
+      accessScope: string
+      freshness: string
+      sensitivity: string
+      ownerManaged: boolean
+      discoverableSummary: string | null
+    }>
+    reputationSummary: {
+      trustTier: string
+      totalTransactions: number
+      completedTransactions: number
+      averageScore: number | null
+      positiveSignalCount: number
+      disputedSignalCount: number
+      lastUpdatedAt: string | null
+    }
+    discoveryProfile: {
+      specialties: string[]
+      searchableTags: string[]
+      preferredEngagements: string[]
+      trustSignals: string[]
+      visibleKnowledgeSummaries: string[]
+    }
+    createdAt: string
+    updatedAt: string
+  }
+  editor: {
+    availableSkills: Array<{
+      key: string
+      name: string
+      summary: string
+      level: string
+    }>
+    availableTools: Array<{
+      toolKey: string
+      title: string
+      mode: string
+      requiresApproval: boolean
+      protocolVisible: boolean
+    }>
+    allowedMemoryScopes: string[]
+    allowedAutonomyModes: string[]
+    allowedApprovalModes: string[]
+  }
+}
+
 export interface CapabilityData {
   agentDid: string
   category: string
@@ -122,6 +255,139 @@ export interface ServiceMatchQuery {
   }
   budget?: { maxAmount?: number; currency?: string }
   limit?: number
+}
+
+export interface LocalFoodProviderAdminResponse {
+  provider: {
+    id: string
+    providerDid: string
+    vertical: 'pizza'
+    status: 'draft' | 'active' | 'paused'
+    businessName: string
+    slug: string
+    summary: string
+    cuisineLabel: string
+    phone: string
+    locationLabel: string
+    fulfilmentModes: Array<'delivery' | 'pickup'>
+    serviceArea: {
+      postcodePrefixes: string[]
+      coverageLabel: string
+      deliveryNotes: string
+    }
+    payment: {
+      mode: 'placeholder'
+      providerLabel: string
+      readiness: 'payment_ready_shape'
+    }
+    createdAt: string
+    updatedAt: string
+  }
+  menuItems: Array<{
+    id: string
+    category: 'pizza' | 'sides' | 'drinks' | 'desserts'
+    name: string
+    description: string
+    priceCents: number
+    currency: 'EUR'
+    available: boolean
+    tags: string[]
+    position: number
+    createdAt: string
+    updatedAt: string
+  }>
+  dashboard: {
+    availableMenuItems: number
+    totalMenuItems: number
+    incomingOrders: number
+    awaitingAction: number
+  }
+  launchChecklist: {
+    hasBusinessBasics: boolean
+    hasServiceArea: boolean
+    hasMenu: boolean
+    canGoLive: boolean
+    nextRecommendedAction: string
+  }
+}
+
+export interface LocalFoodDiscoverProvider {
+  providerDid: string
+  businessName: string
+  summary: string
+  cuisineLabel: string
+  locationLabel: string
+  coverageLabel: string
+  fulfilmentModes: Array<'delivery' | 'pickup'>
+  startingPriceCents: number | null
+  availableMenuItemCount: number
+  specialties: string[]
+}
+
+export interface LocalFoodProviderPublicResponse {
+  provider: {
+    providerDid: string
+    businessName: string
+    summary: string
+    cuisineLabel: string
+    locationLabel: string
+    coverageLabel: string
+    deliveryNotes: string
+    fulfilmentModes: Array<'delivery' | 'pickup'>
+    payment: {
+      mode: 'placeholder'
+      providerLabel: string
+      readiness: 'payment_ready_shape'
+    }
+    specialties: string[]
+  }
+  menuItems: Array<{
+    id: string
+    category: 'pizza' | 'sides' | 'drinks' | 'desserts'
+    name: string
+    description: string
+    priceCents: number
+    currency: 'EUR'
+    available: boolean
+    tags: string[]
+  }>
+}
+
+export interface LocalFoodOrderReadModel {
+  id: string
+  providerDid: string
+  customerDid: string | null
+  customerName: string
+  customerPhone: string
+  customerPostcode: string
+  customerAddressLine: string
+  customerNotes: string
+  fulfilmentMode: 'delivery' | 'pickup'
+  items: Array<{
+    menuItemId: string
+    category: 'pizza' | 'sides' | 'drinks' | 'desserts'
+    name: string
+    unitPriceCents: number
+    quantity: number
+    lineTotalCents: number
+  }>
+  subtotalCents: number
+  totalCents: number
+  currency: 'EUR'
+  payment: {
+    mode: 'placeholder'
+    status: 'pending'
+    displayLabel: string
+    checkoutReference: string
+  }
+  status: 'submitted' | 'confirmed' | 'preparing' | 'ready' | 'completed' | 'cancelled'
+  statusTimeline: Array<{
+    status: 'submitted' | 'confirmed' | 'preparing' | 'ready' | 'completed' | 'cancelled'
+    at: string
+    note: string | null
+  }>
+  createdAt: string
+  updatedAt: string
 }
 
 export interface EngageRequest {
@@ -169,6 +435,7 @@ export interface InboxResponse {
   negotiationId: number
   session_id?: string
   action: 'accept' | 'reject' | 'counter'
+  deliveryPayload?: string
   proposal?: {
     price?: { amount: number; currency: string } | number
     availability?: string
@@ -224,6 +491,17 @@ export interface Negotiation {
   }>
   createdAt: string
   updatedAt: string
+  deliveryPayload?: string
+  deliveryMessages?: Array<{ by: string; message: string; at: string }>
+  transcript?: Array<{
+    id: string
+    kind: 'round' | 'message'
+    action: string
+    by: string
+    message: string
+    price?: number
+    at: string
+  }>
 }
 
 export interface InboxItem {
@@ -238,6 +516,21 @@ export interface InboxItem {
     name: string
     reputationScore: string
   }
+}
+
+export interface RuntimeConnectionResponse {
+  validation: {
+    ok: boolean
+    provider: 'openai' | 'anthropic'
+    message: string
+    model: string
+  }
+  runtime: AgentRuntimeReadModel | null
+}
+
+type AppRequestError = Error & {
+  status?: number
+  code?: string
 }
 
 class ADPClient {
@@ -263,7 +556,10 @@ class ADPClient {
 
     if (!res.ok) {
       const error = await res.json().catch(() => ({ error: { message: res.statusText } }))
-      throw new Error(error.error?.message || `API error: ${res.status}`)
+      const nextError = new Error(error.error?.message || `API error: ${res.status}`) as AppRequestError
+      nextError.status = res.status
+      nextError.code = error.error?.code
+      throw nextError
     }
 
     return res.json()
@@ -282,6 +578,10 @@ class ADPClient {
       throw new Error(error.error?.message || `Registration failed: ${res.status}`)
     }
     return res.json()
+  }
+
+  async renameCurrentAgent(name: string) {
+    return this.appRequest<AgentProfileResponse>('PATCH', '/api/app/agents/me', { name })
   }
 
   // ---- Capabilities ----
@@ -374,10 +674,118 @@ class ADPClient {
     return this.appRequest<OwnerProviderContextResponse>('POST', '/api/app/provider/context/switch', body)
   }
 
+  async getAgentRuntime() {
+    return this.appRequest<{ runtime: AgentRuntimeReadModel }>('GET', '/api/app/agents/runtime')
+  }
+
+  async getOwnerAgentProfile() {
+    return this.appRequest<OwnerAgentProfileResponse>('GET', '/api/app/agents/profile')
+  }
+
+  async updateOwnerAgentProfile(data: Record<string, unknown>) {
+    return this.appRequest<OwnerAgentProfileResponse>('PATCH', '/api/app/agents/profile', data)
+  }
+
+  async connectAgentRuntime(data: ConnectRuntimeProviderRequest) {
+    return this.appRequest<RuntimeConnectionResponse>('POST', '/api/app/agents/runtime', data)
+  }
+
+  async updateAgentRuntimePolicy(data: UpdateAgentPolicyRequest) {
+    return this.appRequest<{ policy: AgentPolicyRecord; runtime: AgentRuntimeReadModel | null }>(
+      'PATCH',
+      '/api/app/agents/runtime/policy',
+      data
+    )
+  }
+
+  async runAgentSandbox(data: SandboxRunRequest) {
+    return this.appRequest<{ run: AgentRunRecord; runtime: AgentRuntimeReadModel | null }>(
+      'POST',
+      '/api/app/agents/runtime/sandbox',
+      data
+    )
+  }
+
   // ---- Discovery ----
 
   async matchServices(data: ServiceMatchQuery) {
     return this.appRequest<{ matches: MatchResult[] }>('POST', '/api/app/services/match', data)
+  }
+
+  async discoverLocalFoodProviders(postcode: string) {
+    return this.appRequest<{ providers: LocalFoodDiscoverProvider[] }>('POST', '/api/app/local-food/discover', {
+      postcode,
+    })
+  }
+
+  async getLocalFoodProvider(providerDid: string) {
+    return this.appRequest<LocalFoodProviderPublicResponse>(
+      'GET',
+      `/api/app/local-food/providers/${encodeURIComponent(providerDid)}`
+    )
+  }
+
+  async submitLocalFoodOrder(data: Record<string, unknown>) {
+    return this.appRequest<{ order: LocalFoodOrderReadModel }>('POST', '/api/app/local-food/orders/submit', data)
+  }
+
+  async getLocalFoodProviderAdmin() {
+    return this.appRequest<LocalFoodProviderAdminResponse>('GET', '/api/app/local-food/provider')
+  }
+
+  async updateLocalFoodProvider(data: Record<string, unknown>) {
+    return this.appRequest<{ provider: LocalFoodProviderAdminResponse['provider'] }>(
+      'PATCH',
+      '/api/app/local-food/provider',
+      data
+    )
+  }
+
+  async bootstrapLocalFoodDemo() {
+    return this.appRequest<{ provider: LocalFoodProviderAdminResponse['provider'] }>(
+      'POST',
+      '/api/app/local-food/demo-bootstrap'
+    )
+  }
+
+  async getLocalFoodMenuItems() {
+    return this.appRequest<{ menuItems: LocalFoodProviderAdminResponse['menuItems'] }>('GET', '/api/app/local-food/menu')
+  }
+
+  async createLocalFoodMenuItem(data: Record<string, unknown>) {
+    return this.appRequest<{ menuItem: LocalFoodProviderAdminResponse['menuItems'][number] }>(
+      'POST',
+      '/api/app/local-food/menu',
+      data
+    )
+  }
+
+  async importLocalFoodMenuCsv(csvText: string) {
+    return this.appRequest<{ menuItems: LocalFoodProviderAdminResponse['menuItems'] }>(
+      'POST',
+      '/api/app/local-food/menu',
+      { mode: 'csv', csvText }
+    )
+  }
+
+  async updateLocalFoodMenuItem(itemId: string, data: Record<string, unknown>) {
+    return this.appRequest<{ menuItem: LocalFoodProviderAdminResponse['menuItems'][number] }>(
+      'PATCH',
+      `/api/app/local-food/menu/${encodeURIComponent(itemId)}`,
+      data
+    )
+  }
+
+  async getLocalFoodOrders() {
+    return this.appRequest<{ orders: LocalFoodOrderReadModel[] }>('GET', '/api/app/local-food/orders')
+  }
+
+  async updateLocalFoodOrderStatus(orderId: string, data: { status: LocalFoodOrderReadModel['status']; note?: string }) {
+    return this.appRequest<{ order: LocalFoodOrderReadModel }>(
+      'PATCH',
+      `/api/app/local-food/orders/${encodeURIComponent(orderId)}`,
+      data
+    )
   }
 
   async engage(data: EngageRequest) {
@@ -392,6 +800,10 @@ class ADPClient {
 
   async getNegotiation(id: number) {
     return this.appRequest<{ negotiation: Negotiation }>('GET', toNegotiationDetailResolverPath(id))
+  }
+
+  async getNegotiations() {
+    return this.appRequest<{ negotiations: Negotiation[] }>('GET', '/api/app/negotiations')
   }
 
   // ---- Provider Inbox ----
@@ -410,6 +822,14 @@ class ADPClient {
 
   async respondToInbox(did: string, data: InboxResponse) {
     return this.appRequest('POST', `/api/app/providers/${encodeURIComponent(did)}/inbox`, data)
+  }
+
+  async sendDelivery(negotiationId: number, deliveryPayload: string) {
+    return this.appRequest('POST', `/api/app/negotiations/${negotiationId}/deliver`, { deliveryPayload })
+  }
+
+  async replyToDelivery(negotiationId: number, message: string) {
+    return this.appRequest('POST', `/api/app/negotiations/${negotiationId}/deliver/reply`, { message })
   }
 
   // ---- Dashboard Stats ----

@@ -19,7 +19,7 @@ export default function MatchCard({ match, index, onSelect }: MatchCardProps) {
   const price = (match.capability?.pricing || {}) as { askingPrice?: number; currency?: string }
   const priceDisplay = price?.askingPrice
     ? `€${(price.askingPrice / 100).toFixed(2)}`
-    : "Op aanvraag"
+    : "On request"
 
   const reputation = parseFloat(agent.reputationScore || "0")
 
@@ -63,7 +63,7 @@ export default function MatchCard({ match, index, onSelect }: MatchCardProps) {
         )}
         <span className="flex items-center gap-1">
           <Clock className="w-3 h-3" />
-          Beschikbaar
+          Available
         </span>
         <span className="ml-auto font-semibold text-white/60">{priceDisplay}</span>
         <ChevronRight className="w-4 h-4 text-white/20" />

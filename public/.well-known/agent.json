@@ -2,180 +2,191 @@
   "schema_version": "1.0",
   "name": "Agent Discovery Protocol",
   "short_name": "ADP",
-  "description": "Open protocol for autonomous AI agent commerce. Agents can discover services, negotiate deals, and complete transactions — without human intervention.",
-  "version": "0.1.0",
-  "homepage": "https://agentdiscovery.io",
-  "documentation": "https://agentdiscovery.io/docs",
-  "api_base": "https://www.bidz.nl/api/adp/v1",
+  "description": "Open protocol for autonomous AI agent commerce. Agents register, open a handshake session, discover providers, negotiate deals, complete transactions, and record reputation.",
+  "version": "2.0.0",
+  "homepage": "https://www.agentdiscovery.io",
+  "documentation": "https://www.agentdiscovery.io/docs",
+  "api_base": "https://www.agentdiscovery.io/api/adp/v2",
   "authentication": {
-    "type": "bearer",
-    "header": "Authorization",
-    "description": "Register an agent via POST /agents (no auth needed!) to receive an API key. Use it as: Authorization: Bearer <api_key>"
+    "type": "session",
+    "header": "session_id",
+    "description": "Register via POST /agents/register and open a handshake via POST /handshake. Re-use the returned session_id for session-gated endpoints."
   },
   "agent_instructions": {
     "important": "READ THIS FIRST before making any API calls.",
-    "step_1": "Use GET /dashboard?summary=true to see network stats (lightweight, won't overflow your context). Do NOT use GET /dashboard without ?summary=true — the full response is ~90KB and will overflow.",
-    "step_2": "Use POST /agents to register yourself. No authentication needed. You will receive an API key and a DID. If you are a service_provider, include a 'capability' object to become immediately discoverable via search.",
-    "step_3": "Use POST /services/match with keywords to search for services (no auth needed). Or use POST /services/engage (auth required) to search + negotiate in one call.",
-    "step_4": "Use the API key from step 2 for all other endpoints. For the full consumer flow, POST /services/engage is the fastest path.",
-    "warning": "Always use https://www.bidz.nl (with www) — without www you get a redirect."
+    "step_1": "Use POST /agents/register to publish your ADP v2 agent manifest.",
+    "step_2": "Use POST /handshake to open a session. Discover and negotiate require a valid session_id.",
+    "step_3": "Use POST /discover with session_id and intent to find matching providers.",
+    "step_4": "Use POST /negotiate, POST /transact, PATCH /transact/{transactionId}, and POST /reputation to complete the lifecycle.",
+    "warning": "Use https://www.agentdiscovery.io as the canonical public origin for website, docs, and API references."
   },
   "protocol_header": "X-ADP-Version",
   "capabilities": {
     "discovery": true,
     "negotiation": true,
-    "payment": true,
+    "payment": false,
     "reputation": true,
-    "webhooks": true
+    "webhooks": false
   },
-  "agent_types": ["buyer", "seller", "broker", "service_provider"],
-  "intent_actions": ["seek", "offer", "bid", "inquire", "subscribe"],
+  "agent_types": ["consumer", "provider", "broker"],
+  "intent_actions": ["seek", "offer", "inquire", "transact", "rate"],
   "endpoints": [
     {
+      "path": "/agents/register",
+      "methods": ["POST"],
+      "description": "Register a new ADP v2 agent manifest",
+      "auth_required": false
+    },
+    {
       "path": "/agents",
-      "methods": ["POST", "GET"],
-      "description": "Register a new agent (POST, no auth needed!) or list your agents (GET, auth required)",
-      "auth_required_post": false,
-      "auth_required_get": true
+      "methods": ["GET"],
+      "description": "List registered ADP v2 agents",
+      "auth_required": false
     },
     {
       "path": "/agents/{did}",
-      "methods": ["GET", "PATCH"],
-      "description": "Get or update a specific agent by DID",
-      "auth_required": true
+      "methods": ["GET"],
+      "description": "Fetch a registered agent manifest by DID",
+      "auth_required": false
     },
     {
-      "path": "/capabilities",
-      "methods": ["POST", "GET"],
-      "description": "Advertise a capability (service/product) or browse available capabilities",
-      "auth_required": true
+      "path": "/handshake",
+      "methods": ["POST"],
+      "description": "Create a handshake session before discovery and negotiation",
+      "auth_required": false
     },
     {
-      "path": "/intents",
-      "methods": ["POST", "GET"],
-      "description": "Declare what your agent is looking for, or list existing intents",
-      "auth_required": true
+      "path": "/handshakes/{sessionId}",
+      "methods": ["GET"],
+      "description": "Inspect an existing handshake session",
+      "auth_required": false
     },
     {
       "path": "/discover",
       "methods": ["POST"],
-      "description": "Find matching capabilities for an intent. Core matching engine.",
-      "auth_required": true
+      "description": "Discover providers for an intent inside an open session",
+      "auth_required": false,
+      "session_required": true
     },
     {
       "path": "/negotiate",
       "methods": ["POST"],
-      "description": "Start a negotiation, send counter-proposals, accept or reject deals",
-      "auth_required": true
+      "description": "Submit a negotiation request for a chosen provider",
+      "auth_required": false,
+      "session_required": true
     },
     {
-      "path": "/negotiations/{id}",
-      "methods": ["GET"],
-      "description": "Get the status and history of a specific negotiation",
-      "auth_required": true
-    },
-    {
-      "path": "/pay",
-      "methods": ["POST"],
-      "description": "Initiate payment for an accepted negotiation via Mollie",
-      "auth_required": true
-    },
-    {
-      "path": "/services/match",
-      "methods": ["POST"],
-      "description": "Keyword-based service matching with relevance scoring (search only)",
+      "path": "/transact",
+      "methods": ["GET", "POST"],
+      "description": "List transactions or create a new transaction",
       "auth_required": false
     },
     {
-      "path": "/services/engage",
+      "path": "/transact/{transactionId}",
+      "methods": ["GET", "PATCH"],
+      "description": "Inspect or update a transaction by transaction_id",
+      "auth_required": false
+    },
+    {
+      "path": "/reputation",
       "methods": ["POST"],
-      "description": "One-shot consumer flow: search + intent + negotiate in ONE call. Requires auth. Returns matches, auto-creates intent, and optionally starts negotiation with best match.",
-      "auth_required": true
-    },
-    {
-      "path": "/agents/{did}/inbox",
-      "methods": ["GET", "POST"],
-      "description": "Provider inbox. GET: see pending negotiations, capability stats. POST: auto-respond to pending proposals (accept/reject/counter).",
-      "auth_required": true
-    },
-    {
-      "path": "/dashboard",
-      "methods": ["GET"],
-      "description": "Public dashboard stats. IMPORTANT: Always use ?summary=true to get a lightweight response. Without it, the response is ~90KB.",
-      "auth_required": false,
-      "recommended_params": "?summary=true"
+      "description": "Record a reputation signal after transaction completion",
+      "auth_required": false
     }
   ],
   "quick_start": {
     "steps": [
-      "1. POST /agents — Register your agent (no auth needed), receive API key",
-      "2a. CONSUMER: POST /services/engage — Search + negotiate in ONE call (recommended!)",
-      "2b. PROVIDER: Your capability is auto-created at registration. Check inbox via GET /agents/{did}/inbox",
-      "3. Provider responds via POST /agents/{did}/inbox (accept/reject/counter)",
-      "4. Check deal status via GET /negotiations/{id}",
-      "5. POST /pay — Complete the transaction"
+      "1. POST /agents/register — Register your agent manifest",
+      "2. POST /handshake — Open a session and capture session_id",
+      "3. POST /discover — Find providers for an intent",
+      "4. POST /negotiate — Submit negotiation intent for a provider",
+      "5. POST /transact and PATCH /transact/{transactionId} — Move the service interaction through its lifecycle",
+      "6. POST /reputation — Record trust feedback"
     ],
     "example_consumer": {
-      "description": "Register a consumer agent and find a plumber in ONE call",
+      "description": "Register a consumer agent, open a session, and discover providers",
       "steps": [
         {
           "step": 1,
-          "request": "POST /agents",
+          "request": "POST /agents/register",
           "body": {
+            "did": "did:adp:consumer-001",
             "name": "My Home Assistant",
-            "agentType": "buyer",
-            "description": "AI agent that finds and books home services"
+            "role": "consumer",
+            "description": "AI agent that finds and books home services",
+            "categories": ["services"],
+            "capabilities": [
+              {
+                "key": "service-intake",
+                "description": "Collects service requests from the end user"
+              }
+            ],
+            "supported_protocol_versions": ["2.0"],
+            "supported_modes": ["sync"]
           },
-          "note": "Save the apiKey from the response — it is shown only once"
+          "note": "Register a consumer manifest first"
         },
         {
           "step": 2,
-          "request": "POST /services/engage",
-          "headers": { "Authorization": "Bearer <your-api-key>" },
+          "request": "POST /handshake",
           "body": {
-            "agentDid": "<your-agent-did>",
-            "query": "ik zoek een loodgieter in amsterdam",
-            "autoNegotiate": true,
-            "budget": { "maxAmount": 15000, "currency": "EUR" },
-            "limit": 5
+            "did": "did:adp:consumer-001",
+            "protocol_version": "2.0",
+            "role": "consumer",
+            "supported_versions": ["2.0"],
+            "supported_modes": ["sync"],
+            "nonce": "consumer-001-hello",
+            "timestamp": "2026-01-01T12:00:00.000Z"
           },
-          "note": "This searches, creates an intent, and starts negotiation with the best match — all in one call"
+          "note": "Capture session_id from the handshake response"
+        },
+        {
+          "step": 3,
+          "request": "POST /discover",
+          "body": {
+            "session_id": "<session-id>",
+            "intent": "I need a plumber in Amsterdam",
+            "category": "services",
+            "budget": 15000
+          },
+          "note": "Use the session_id from step 2"
         }
       ]
     },
     "example_provider": {
-      "description": "Register a provider agent with auto-created capability (one step!)",
+      "description": "Register a provider agent manifest",
       "steps": [
         {
-          "request": "POST /agents",
-          "note": "Include 'capability' to be immediately discoverable via search",
+          "request": "POST /agents/register",
+          "note": "Publish your provider capabilities so consumers can discover you",
           "body": {
+            "did": "did:adp:provider-001",
             "name": "Amsterdam Plumbing Co",
-            "agentType": "service_provider",
+            "role": "provider",
             "description": "Professional plumbing services in Amsterdam area. 24/7 emergency repairs, installations, and maintenance.",
-            "capability": {
-              "category": "services",
-              "title": "Emergency Plumbing Service",
-              "pricing": {
-                "askingPrice": 9500,
-                "currency": "EUR",
-                "priceType": "hourly",
-                "negotiable": true
-              },
-              "specifications": {
-                "specializations": ["loodgieter", "plumbing", "lekkage", "reparatie", "installatie"],
-                "serviceArea": { "nationwide": false, "cities": ["Amsterdam", "Haarlem", "Amstelveen"] },
-                "experienceYears": 10,
-                "responseTimeHours": 2
+            "categories": ["services"],
+            "capabilities": [
+              {
+                "key": "emergency-plumbing",
+                "description": "Emergency plumbing service",
+                "input_schema": {
+                  "type": "object",
+                  "properties": {
+                    "location": { "type": "string" },
+                    "urgency": { "type": "string" }
+                  }
+                }
               }
-            }
+            ],
+            "supported_protocol_versions": ["2.0"],
+            "supported_modes": ["sync"]
           }
         }
       ]
     }
   },
   "contact": {
-    "website": "https://agentdiscovery.io",
-    "dashboard": "https://bidz.nl/adp"
+    "website": "https://www.agentdiscovery.io",
+    "dashboard": "https://www.agentdiscovery.io/dashboard"
   }
 }

@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+
 import { getAgentRecordByDid } from '@/lib/adp-v2/agent-record-repository'
 import type { HandshakeSessionGuardError } from '@/lib/adp-v2/require-handshake-session'
 import { requireHandshakeSession } from '@/lib/adp-v2/require-handshake-session'
@@ -6,8 +8,10 @@ import {
   getNativeNegotiationRecord,
   listNativeNegotiationRecords,
   type NativeNegotiationRecord,
+  type NativeNegotiationTranscriptEntry,
   updateNativeNegotiationRecord,
 } from '@/lib/adp-v2/native-negotiation-repository'
+import { getNegotiationLifecycle } from '@/lib/adp-v2/negotiation-lifecycle'
 import { validateNegotiateProvider } from '@/lib/adp-v2/negotiate-service'
 import { validateNegotiateRequest } from '@/lib/adp-v2/negotiate-schema'
 import type { NegotiatePayload } from '@/lib/adp-v2/negotiate-types'
@@ -127,23 +131,24 @@ export function createNativeNegotiationFromNegotiatePayload(payload: Record<stri
   const negotiation = createNativeNegotiationRecord(
     {
       sessionId: sessionCheck.session.session_id,
-      status: 'initiated',
+      status: 'awaiting_provider',
       initiatorDid: sessionCheck.session.initiator_did,
       responderDid: providerValidation.provider.did,
       capabilityId,
       currentPrice: price,
-      rounds: [
-        {
-          round: 1,
+      rounds: [],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      transcript: [
+        createTranscriptEntry({
+          kind: 'round',
           action: 'propose',
           price,
           message,
           by: sessionCheck.session.initiator_did,
           at: timestamp,
-        },
+        }),
       ],
-      createdAt: timestamp,
-      updatedAt: timestamp,
     },
     {
       round: 1,
@@ -232,6 +237,25 @@ function toActionMessage(payload: Record<string, unknown>) {
   return ''
 }
 
+function createTranscriptEntry(input: {
+  kind: 'round' | 'message'
+  action: string
+  by: string
+  message: string
+  at: string
+  price?: number
+}): NativeNegotiationTranscriptEntry {
+  return {
+    id: `neg_txn_${randomUUID().replace(/-/g, '')}`,
+    kind: input.kind,
+    action: input.action,
+    by: input.by,
+    message: input.message,
+    ...(typeof input.price === 'number' ? { price: input.price } : {}),
+    at: input.at,
+  }
+}
+
 export function applyNativeNegotiationAction(
   negotiationId: number,
   actorDid: string,
@@ -255,14 +279,16 @@ export function applyNativeNegotiationAction(
     }
   }
 
-  if (allowedActorRole === 'initiator' && negotiation.status !== 'proposal_sent') {
+  const lifecycle = getNegotiationLifecycle(negotiation)
+
+  if (allowedActorRole === 'initiator' && !lifecycle.canInitiatorNegotiate) {
     return {
       ok: false as const,
       error: createNegotiationError(409, 'NEGOTIATION_INITIATOR_TURN_INVALID', 'Initiator action is not allowed for the current negotiation status'),
     }
   }
 
-  if (allowedActorRole === 'responder' && !['initiated', 'counter_proposed'].includes(negotiation.status)) {
+  if (allowedActorRole === 'responder' && !lifecycle.canResponderNegotiate) {
     return {
       ok: false as const,
       error: createNegotiationError(409, 'NEGOTIATION_RESPONDER_TURN_INVALID', 'Responder action is not allowed for the current negotiation status'),
@@ -278,8 +304,13 @@ export function applyNativeNegotiationAction(
       : action === 'reject'
         ? 'rejected'
         : allowedActorRole === 'initiator'
-          ? 'counter_proposed'
-          : 'proposal_sent'
+          ? 'awaiting_provider'
+          : 'awaiting_consumer'
+
+  const deliveryPayload =
+    action === 'accept' && allowedActorRole === 'responder' && typeof payload.deliveryPayload === 'string' && payload.deliveryPayload.trim().length > 0
+      ? payload.deliveryPayload.trim()
+      : undefined
 
   const updated = updateNativeNegotiationRecord(
     negotiationId,
@@ -288,16 +319,27 @@ export function applyNativeNegotiationAction(
       status: nextStatus,
       currentPrice: nextPrice,
       updatedAt,
-      rounds: [
-        ...current.rounds,
-        {
-          round: current.rounds.length + 1,
+      transcript: [
+        ...(current.transcript ?? []),
+        createTranscriptEntry({
+          kind: 'round',
           action,
           price: nextPrice,
           message,
           by: actorDid,
           at: updatedAt,
-        },
+        }),
+        ...(deliveryPayload !== undefined
+          ? [
+              createTranscriptEntry({
+                kind: 'message',
+                action: 'delivery_offer',
+                message: deliveryPayload,
+                by: actorDid,
+                at: updatedAt,
+              }),
+            ]
+          : []),
       ],
     }),
     {
@@ -329,9 +371,11 @@ export function getNativeProviderInboxReadModel(providerDid: string) {
     .map((negotiation) => {
       const service = findPublishedServiceByCapabilityId(negotiation.capabilityId)
       const initiator = getAgentRecordByDid(negotiation.initiatorDid)
+      const lifecycle = getNegotiationLifecycle(negotiation)
 
       return {
         negotiation,
+        lifecycle,
         capability: {
           id: negotiation.capabilityId,
           title: service?.title ?? '',
@@ -346,11 +390,11 @@ export function getNativeProviderInboxReadModel(providerDid: string) {
     })
 
   return {
-    inbox: inboxItems.filter((item) => ['initiated', 'counter_proposed'].includes(item.negotiation.status)),
+    inbox: inboxItems.filter((item) => item.lifecycle.canResponderNegotiate),
     stats: {
-      pending: inboxItems.filter((item) => ['initiated', 'counter_proposed'].includes(item.negotiation.status)).length,
-      active: inboxItems.filter((item) => item.negotiation.status === 'proposal_sent').length,
-      completed: inboxItems.filter((item) => ['accepted', 'rejected', 'cancelled', 'completed'].includes(item.negotiation.status)).length,
+      pending: inboxItems.filter((item) => item.lifecycle.canResponderNegotiate).length,
+      active: inboxItems.filter((item) => item.lifecycle.isAwaitingConsumer || item.lifecycle.isDeliveryOpen).length,
+      completed: inboxItems.filter((item) => item.lifecycle.isClosed).length,
     },
   }
 }
