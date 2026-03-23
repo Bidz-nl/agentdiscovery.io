@@ -156,6 +156,7 @@ export default function PlaygroundPage() {
   const [{ did: consumerDid, name: consumerName }] = useState(() => generateDemoIdentity())
   const [{ did: providerDid, name: providerName }] = useState(() => generateDemoIdentity())
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [registeredProviderDid, setRegisteredProviderDid] = useState<string | null>(null)
   const [transactionId, setTransactionId] = useState<string | null>(null)
   const [runningAll, setRunningAll] = useState(false)
 
@@ -255,7 +256,7 @@ export default function PlaygroundPage() {
   }
 
   const transactBody = {
-    provider_did: providerDid,
+    provider_did: registeredProviderDid ?? providerDid,
     session_id: sessionId ?? "(from handshake)",
     intent: "Demo playground transaction",
     budget: 1500,
@@ -268,7 +269,7 @@ export default function PlaygroundPage() {
 
   const reputationBody = {
     transaction_id: transactionId ?? "(from transact)",
-    provider_did: providerDid,
+    provider_did: registeredProviderDid ?? providerDid,
     score: 3,
     signal: "positive",
   }
@@ -278,7 +279,9 @@ export default function PlaygroundPage() {
   }
 
   async function runRegisterProvider() {
-    await post("registerProvider", "/agents/register", registerProviderBody)
+    const data = await post("registerProvider", "/agents/register", registerProviderBody)
+    const actualDid = (data?.agent as Record<string, unknown> | undefined)?.did as string | undefined
+    if (actualDid) setRegisteredProviderDid(actualDid)
   }
 
   async function runHandshake() {
@@ -294,7 +297,7 @@ export default function PlaygroundPage() {
 
   async function runTransact() {
     if (!sessionId) return
-    const data = await post("transact", "/transact", { ...transactBody, session_id: sessionId })
+    const data = await post("transact", "/transact", { ...transactBody, session_id: sessionId, provider_did: registeredProviderDid ?? providerDid })
     const tx = data?.transaction as Record<string, unknown> | undefined
     const txId = tx?.transaction_id as string | undefined
     if (txId) setTransactionId(txId)
@@ -316,6 +319,7 @@ export default function PlaygroundPage() {
     await post("reputation", "/reputation", {
       ...reputationBody,
       transaction_id: transactionId,
+      provider_did: registeredProviderDid ?? providerDid,
     })
   }
 
@@ -323,13 +327,15 @@ export default function PlaygroundPage() {
     setRunningAll(true)
     try {
       await post("registerConsumer", "/agents/register", registerConsumerBody)
-      await post("registerProvider", "/agents/register", registerProviderBody)
+      const provData = await post("registerProvider", "/agents/register", registerProviderBody)
+      const actualProvDid = (provData?.agent as Record<string, unknown> | undefined)?.did as string | undefined
+      if (actualProvDid) setRegisteredProviderDid(actualProvDid)
       const hsData = await post("handshake", "/handshake", handshakeBody)
       const sid = hsData?.session_id as string | undefined
       if (sid) setSessionId(sid)
       if (!sid) return
       await post("discover", "/discover", { ...discoverBody, session_id: sid })
-      const txData = await post("transact", "/transact", { ...transactBody, session_id: sid })
+      const txData = await post("transact", "/transact", { ...transactBody, session_id: sid, provider_did: actualProvDid ?? providerDid })
       const tx = txData?.transaction as Record<string, unknown> | undefined
       const txId = tx?.transaction_id as string | undefined
       if (txId) setTransactionId(txId)
@@ -340,7 +346,7 @@ export default function PlaygroundPage() {
         body: JSON.stringify({ status: "accepted" }),
       })
       await patch("complete", `/transact/${txId}`, { status: "completed" })
-      await post("reputation", "/reputation", { ...reputationBody, transaction_id: txId })
+      await post("reputation", "/reputation", { ...reputationBody, transaction_id: txId, provider_did: actualProvDid ?? providerDid })
     } catch {
       // individual step error already captured
     } finally {
