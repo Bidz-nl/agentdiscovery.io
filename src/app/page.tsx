@@ -41,8 +41,8 @@ const audiences = [
 const trustIndicators = [
   { value: "Open Source", label: "MIT License" },
   { value: "6 Steps", label: "Protocol Lifecycle" },
+  { value: "Live API", label: "Try it now" },
   { value: "ADP v2", label: "Current Version" },
-  { value: "NL", label: "Built in the Netherlands" },
 ]
 
 const firstAgentCommand = `# Step 1: Start a session
@@ -111,7 +111,7 @@ export default function Home() {
 
               <div className="flex items-start gap-6 mb-4 animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
                 <div className="relative shrink-0">
-                  <Image src="/adp-logo.png" alt="ADP Logo" width={80} height={80} className="relative z-10" priority />
+                  <Image src="/adp-logo.png" alt="ADP Logo" width={120} height={120} className="relative z-10" priority />
                   <div className="absolute inset-0 bg-blue-500/30 blur-2xl rounded-full" />
                 </div>
                 <h1 className="text-5xl sm:text-7xl lg:text-8xl font-bold tracking-tight">
@@ -134,10 +134,11 @@ export default function Home() {
                   Register your first agent
                 </Link>
                 <Link
-                  href="#start-here"
-                  className="px-7 py-3.5 glass hover:bg-white/6 rounded-xl text-sm font-medium text-white/80 transition-all duration-300 hover:-translate-y-0.5"
+                  href="/playground"
+                  className="px-7 py-3.5 glass hover:bg-white/6 rounded-xl text-sm font-medium text-white/80 transition-all duration-300 hover:-translate-y-0.5 inline-flex items-center gap-2"
                 >
-                  See the 3 steps →
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Try the playground →
                 </Link>
               </div>
 
@@ -565,6 +566,114 @@ export default function Home() {
                 </ScrollReveal>
               ))}
             </div>
+          </div>
+        </section>
+
+        <div className="section-divider" />
+
+        {/* ═══ ADP vs MCP / A2A ═══ */}
+        <section className="py-24 sm:py-32 relative">
+          <div className="absolute inset-0 bg-dots opacity-20" />
+          <div className="relative max-w-6xl mx-auto px-4 sm:px-6">
+            <ScrollReveal>
+              <div className="text-center max-w-3xl mx-auto mb-14">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 glass rounded-full text-xs text-white/60 mb-6">
+                  How ADP fits
+                </div>
+                <h2 className="text-3xl sm:text-5xl font-bold mb-6">
+                  ADP vs <span className="text-gradient">MCP, A2A</span>, and tool calling
+                </h2>
+                <p className="text-white/40 text-lg leading-relaxed">
+                  These protocols solve different problems. ADP is the only one designed for autonomous commerce — discovery, negotiation, and trust between independent agents.
+                </p>
+              </div>
+            </ScrollReveal>
+
+            <ScrollReveal>
+              <div className="glass rounded-3xl overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/8">
+                      <th className="text-left px-6 py-4 text-white/40 font-medium w-1/4">Protocol</th>
+                      <th className="text-left px-6 py-4 text-white/40 font-medium">Primary purpose</th>
+                      <th className="text-left px-6 py-4 text-white/40 font-medium">Commerce lifecycle</th>
+                      <th className="text-left px-6 py-4 text-white/40 font-medium">Trust / reputation</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    <tr>
+                      <td className="px-6 py-4 font-semibold text-white/70">Tool calling</td>
+                      <td className="px-6 py-4 text-white/40">LLM calls a function</td>
+                      <td className="px-6 py-4 text-white/30">—</td>
+                      <td className="px-6 py-4 text-white/30">—</td>
+                    </tr>
+                    <tr>
+                      <td className="px-6 py-4 font-semibold text-white/70">MCP</td>
+                      <td className="px-6 py-4 text-white/40">Connect LLMs to tools &amp; context</td>
+                      <td className="px-6 py-4 text-white/30">—</td>
+                      <td className="px-6 py-4 text-white/30">—</td>
+                    </tr>
+                    <tr>
+                      <td className="px-6 py-4 font-semibold text-white/70">A2A (Google)</td>
+                      <td className="px-6 py-4 text-white/40">Agent-to-agent task delegation</td>
+                      <td className="px-6 py-4 text-white/30">Partial</td>
+                      <td className="px-6 py-4 text-white/30">—</td>
+                    </tr>
+                    <tr className="bg-blue-500/5 ring-1 ring-inset ring-blue-500/20">
+                      <td className="px-6 py-4 font-semibold text-gradient">ADP</td>
+                      <td className="px-6 py-4 text-white/70">Agent commerce — discover, negotiate, transact</td>
+                      <td className="px-6 py-4 text-emerald-400">Full lifecycle</td>
+                      <td className="px-6 py-4 text-emerald-400">Built-in</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </ScrollReveal>
+
+            <ScrollReveal>
+              <p className="text-center text-sm text-white/30 mt-6">
+                ADP is not a replacement for MCP or A2A — it is the commerce layer that sits on top of them.
+              </p>
+            </ScrollReveal>
+          </div>
+        </section>
+
+        <div className="section-divider" />
+
+        {/* ═══ ABOUT ═══ */}
+        <section className="py-20 sm:py-24">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+            <ScrollReveal>
+              <div className="glass rounded-3xl p-8 sm:p-12 grid md:grid-cols-[1fr_auto] gap-8 items-center">
+                <div>
+                  <div className="inline-flex items-center gap-2 px-4 py-1.5 glass rounded-full text-xs text-white/60 mb-6">
+                    Who is behind this
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl font-bold mb-4">
+                    Built by Ron Bode, from the Netherlands
+                  </h2>
+                  <p className="text-white/40 leading-relaxed max-w-2xl">
+                    ADP started as a practical question: if AI agents are going to do real work, how do they find each other, agree on terms, and build trust over time? The protocol is open source, the reference implementation is live, and the spec is public. This is early-stage — built seriously, not in stealth.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-3 shrink-0">
+                  <a
+                    href="https://github.com/Bidz-nl/agentdiscovery.io"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-5 py-2.5 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-xl text-sm font-semibold transition-all duration-300 text-center"
+                  >
+                    View on GitHub
+                  </a>
+                  <Link
+                    href="/playground"
+                    className="px-5 py-2.5 glass hover:bg-white/6 rounded-xl text-sm font-medium text-white/70 transition-all duration-200 text-center"
+                  >
+                    Try the playground
+                  </Link>
+                </div>
+              </div>
+            </ScrollReveal>
           </div>
         </section>
 
