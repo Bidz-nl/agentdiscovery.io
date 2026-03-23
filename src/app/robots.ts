@@ -4,10 +4,21 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       {
+        userAgent: ['GPTBot', 'ClaudeBot', 'PerplexityBot', 'cohere-ai', 'anthropic-ai'],
+        allow: ['/', '/api/adp/'],
+        disallow: [
+          '/app/onboarding/',
+          '/app/consumer/order/',
+          '/app/consumer/history',
+          '/app/consumer/results',
+          '/app/provider/services',
+          '/app/profile',
+        ],
+      },
+      {
         userAgent: '*',
         allow: '/',
         disallow: [
-          '/api/',
           '/app/onboarding/',
           '/app/consumer/order/',
           '/app/consumer/history',

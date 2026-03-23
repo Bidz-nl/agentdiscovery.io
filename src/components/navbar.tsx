@@ -8,9 +8,9 @@ import { useAgentStore } from "@/app/app/lib/agent-store"
 
 const navLinks = [
   { href: "/protocol", label: "Protocol" },
-  { href: "/ecosystem", label: "Ecosystem" },
-  { href: "/demo", label: "Demo" },
+  { href: "/playground", label: "Playground" },
   { href: "/docs", label: "Docs" },
+  { href: "/ecosystem", label: "Ecosystem" },
   { href: "https://github.com/Bidz-nl/agentdiscovery.io", label: "GitHub", external: true },
 ]
 
@@ -70,16 +70,16 @@ export function Navbar() {
           ) : (
             <>
               <Link
-                href="/register"
+                href="/app/restore"
                 className="px-3 py-2 text-sm text-white/50 hover:text-white/80 transition-colors"
               >
-                Register a bot
+                Log in
               </Link>
               <Link
-                href="/app/restore"
+                href="/register"
                 className="px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-lg transition-all duration-200 shadow-lg shadow-blue-500/20"
               >
-                Go to your bot →
+                Register a bot →
               </Link>
             </>
           )}
@@ -131,18 +131,18 @@ export function Navbar() {
               ) : (
                 <>
                   <Link
-                    href="/app/restore"
+                    href="/register"
                     onClick={() => setMobileOpen(false)}
                     className="px-4 py-3 rounded-lg text-sm font-medium text-white text-center bg-linear-to-r from-blue-600 to-indigo-600"
                   >
-                    Go to your bot →
+                    Register a bot →
                   </Link>
                   <Link
-                    href="/register"
+                    href="/app/restore"
                     onClick={() => setMobileOpen(false)}
                     className="px-4 py-3 rounded-lg text-sm text-white/60 text-center hover:text-white transition-colors"
                   >
-                    No bot yet? Register one
+                    Log in
                   </Link>
                 </>
               )}
