@@ -44,10 +44,10 @@ export function searchDirectoryByPostcode(postcode: string, limit = 40): Directo
   return directory.filter((r) => postcodeDigits(r.address.postcode) === digits).slice(0, limit)
 }
 
-export function searchDirectoryByCity(city: string, limit = 40): DirectoryRestaurant[] {
+export function searchDirectoryByCity(city: string): DirectoryRestaurant[] {
   if (!city || city.trim().length < 2) return []
   const q = city.toLowerCase().trim()
-  return directory.filter((r) => r.address.city.toLowerCase().includes(q)).slice(0, limit)
+  return directory.filter((r) => r.address.city.toLowerCase().includes(q))
 }
 
 export function searchDirectory(opts: {
@@ -56,13 +56,12 @@ export function searchDirectory(opts: {
   query?: string
   limit?: number
 }): DirectoryRestaurant[] {
-  const limit = opts.limit ?? 40
   let results: DirectoryRestaurant[] = []
 
   if (opts.postcode && opts.postcode.trim().length >= 4) {
-    results = searchDirectoryByPostcode(opts.postcode, limit)
+    results = searchDirectoryByPostcode(opts.postcode, opts.limit ?? 40)
   } else if (opts.city && opts.city.trim().length >= 2) {
-    results = searchDirectoryByCity(opts.city, limit)
+    results = searchDirectoryByCity(opts.city)
   }
 
   if (opts.query && opts.query.trim().length > 0) {
