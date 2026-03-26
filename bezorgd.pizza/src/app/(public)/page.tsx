@@ -49,9 +49,8 @@ export default async function HomePage() {
               <label className="flex flex-col gap-2 text-sm font-medium text-[#5f3420]">
                 Postcode
                 <input
-                  defaultValue="1055 AB"
                   name="postcode"
-                  placeholder="Bijvoorbeeld 1055 AB"
+                  placeholder="Bijv. 1055 AB"
                   className="rounded-xl border border-orange-200 bg-[#fffaf4] px-4 py-3 text-base text-[#2f160c] outline-none ring-0 placeholder:text-[#b37b5c]"
                 />
               </label>
