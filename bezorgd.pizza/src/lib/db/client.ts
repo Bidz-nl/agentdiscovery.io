@@ -23,7 +23,11 @@ export async function readDbJsonFile<T>(relativePath: string, fallbackValue: T):
 }
 
 export async function writeDbJsonFile<T>(relativePath: string, value: T) {
-  const targetFile = path.join(getDbDataRoot(), relativePath)
-  await mkdir(path.dirname(targetFile), { recursive: true })
-  await writeFile(targetFile, JSON.stringify(value, null, 2), 'utf8')
+  try {
+    const targetFile = path.join(getDbDataRoot(), relativePath)
+    await mkdir(path.dirname(targetFile), { recursive: true })
+    await writeFile(targetFile, JSON.stringify(value, null, 2), 'utf8')
+  } catch {
+    // On read-only filesystems (e.g. Vercel serverless) writes are skipped
+  }
 }
