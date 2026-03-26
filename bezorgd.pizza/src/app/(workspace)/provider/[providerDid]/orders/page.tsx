@@ -113,7 +113,7 @@ export default async function ProviderOrdersPage({
     notFound()
   }
 
-  const activeFilter = (filter ?? 'attention') as LocalFoodProviderQueueFilter
+  const activeFilter = (filter ?? 'all') as LocalFoodProviderQueueFilter
   const activeView = view === 'controls' ? 'controls' : 'intake'
   const controlsView = await getProviderOperationalControlsView(restaurantDetail.restaurant.providerDid)
   const board = await getProviderOrderBoard(restaurantDetail.restaurant.providerDid, activeFilter)
