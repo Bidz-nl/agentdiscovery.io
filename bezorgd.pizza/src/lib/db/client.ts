@@ -1,10 +1,8 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
-const DB_DATA_DIRECTORY = '.data'
-
 export function getDbDataRoot() {
-  return path.join(process.cwd(), DB_DATA_DIRECTORY)
+  return process.env.VERCEL ? '/tmp/bezorgd-data' : path.join(process.cwd(), '.data')
 }
 
 export async function readDbJsonFile<T>(relativePath: string, fallbackValue: T): Promise<T> {
@@ -23,11 +21,7 @@ export async function readDbJsonFile<T>(relativePath: string, fallbackValue: T):
 }
 
 export async function writeDbJsonFile<T>(relativePath: string, value: T) {
-  try {
-    const targetFile = path.join(getDbDataRoot(), relativePath)
-    await mkdir(path.dirname(targetFile), { recursive: true })
-    await writeFile(targetFile, JSON.stringify(value, null, 2), 'utf8')
-  } catch {
-    // On read-only filesystems (e.g. Vercel serverless) writes are skipped
-  }
+  const targetFile = path.join(getDbDataRoot(), relativePath)
+  await mkdir(path.dirname(targetFile), { recursive: true })
+  await writeFile(targetFile, JSON.stringify(value, null, 2), 'utf8')
 }
