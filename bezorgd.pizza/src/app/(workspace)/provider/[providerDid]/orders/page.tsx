@@ -66,27 +66,35 @@ function getStatusAgeLabel(order: LocalFoodProviderOrderQueueItem) {
 }
 
 function getCardClassName(order: LocalFoodProviderOrderQueueItem) {
-  if (order.urgency === 'high') {
-    return 'border-[#c85b24] bg-[#fff1ea] ring-2 ring-[#ffd3bf] shadow-[0_14px_34px_rgba(200,91,36,0.14)]'
+  switch (order.status) {
+    case 'received':
+      return 'border-red-400 bg-red-50 ring-2 ring-red-200 shadow-[0_14px_34px_rgba(220,38,38,0.12)]'
+    case 'preparing':
+      return 'border-orange-400 bg-orange-50 ring-1 ring-orange-200'
+    case 'ready_for_pickup':
+    case 'out_for_delivery':
+      return 'border-amber-400 bg-amber-50 ring-1 ring-amber-200'
+    case 'completed':
+      return 'border-green-400 bg-green-50 opacity-80'
+    case 'cancelled':
+      return 'border-gray-300 bg-gray-50 opacity-50'
   }
-
-  if (order.urgency === 'medium') {
-    return 'border-orange-300 bg-[#fff7f0]'
-  }
-
-  return 'border-orange-200 bg-[#fffaf4] opacity-65'
 }
 
-function getUrgencyBadgeClassName(order: LocalFoodProviderOrderQueueItem) {
-  if (order.urgency === 'high') {
-    return 'border-[#c85b24] bg-[#c85b24] text-white'
+function getStatusBadgeClassName(order: LocalFoodProviderOrderQueueItem) {
+  switch (order.status) {
+    case 'received':
+      return 'border-red-500 bg-red-500 text-white'
+    case 'preparing':
+      return 'border-orange-500 bg-orange-500 text-white'
+    case 'ready_for_pickup':
+    case 'out_for_delivery':
+      return 'border-amber-500 bg-amber-500 text-white'
+    case 'completed':
+      return 'border-green-600 bg-green-600 text-white'
+    case 'cancelled':
+      return 'border-gray-400 bg-gray-400 text-white'
   }
-
-  if (order.urgency === 'medium') {
-    return 'border-orange-300 bg-white text-[#9a4a1b]'
-  }
-
-  return 'border-orange-200 bg-white text-[#6a3c24]'
 }
 
 export default async function ProviderOrdersPage({
@@ -214,8 +222,8 @@ export default async function ProviderOrdersPage({
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#9a4a1b]">
                     <span>{order.orderReference}</span>
-                    <span className={`rounded-full border px-3 py-1 normal-case tracking-normal ${getUrgencyBadgeClassName(order)}`}>
-                      {order.urgencyLabel}
+                    <span className={`rounded-full border px-3 py-1 normal-case tracking-normal ${getStatusBadgeClassName(order)}`}>
+                      {order.statusLabel}
                     </span>
                   </div>
                   <div className="text-right">
@@ -239,7 +247,6 @@ export default async function ProviderOrdersPage({
                 </div>
 
                 <div className="flex flex-wrap gap-2 text-sm">
-                  <span className="rounded-full border border-orange-200 bg-white px-3 py-1 text-[#6a3c24]">{order.statusLabel}</span>
                   <span className="rounded-full border border-orange-200 bg-white px-3 py-1 text-[#6a3c24]">{order.paymentStatusLabel}</span>
                 </div>
 

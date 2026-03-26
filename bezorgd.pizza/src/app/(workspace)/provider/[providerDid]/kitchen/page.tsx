@@ -20,15 +20,17 @@ function getKitchenOrders(orders: LocalFoodProviderOrderQueueItem[]) {
 }
 
 function getKitchenCardClassName(order: LocalFoodProviderOrderQueueItem) {
-  if (order.status === 'received') {
-    return 'border-[#c85b24] bg-[#fff1ea] ring-2 ring-[#ffd3bf]'
+  switch (order.status) {
+    case 'received':
+      return 'border-red-400 bg-red-50 ring-2 ring-red-200 shadow-[0_14px_34px_rgba(220,38,38,0.12)]'
+    case 'preparing':
+      return 'border-orange-400 bg-orange-50 ring-1 ring-orange-200'
+    case 'ready_for_pickup':
+    case 'out_for_delivery':
+      return 'border-amber-400 bg-amber-50 ring-1 ring-amber-200'
+    default:
+      return 'border-green-400 bg-green-50 opacity-80'
   }
-
-  if (order.status === 'preparing') {
-    return 'border-orange-300 bg-[#fff7f0]'
-  }
-
-  return 'border-orange-200 bg-[#fffaf4] opacity-80'
 }
 
 export default async function ProviderKitchenPage({
