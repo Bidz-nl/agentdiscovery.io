@@ -10,7 +10,7 @@ If you discover a security vulnerability, please report it responsibly and do no
 
 Please send a report to:
 
-- `security@bidz.nl`
+- `security@agentdiscovery.io`
 
 Include, if possible:
 
